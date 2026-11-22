@@ -19,7 +19,7 @@ export default function DesignStep({
   initialBrief: Brief | null;
   goNext: () => void;
 }) {
-  const { run, busy, error } = useAction(onUpdate);
+  const { run, busy, error, job } = useAction(onUpdate);
 
   return (
     <div className="flex h-[calc(100vh-57px)] min-h-0">
@@ -42,7 +42,7 @@ export default function DesignStep({
 
           <section aria-labelledby="views-title">
             <ProductViews product={product} run={run} busy={busy} />
-            <Status busy={busy} error={error} />
+            <Status busy={busy} error={error} job={job} />
           </section>
 
           {product.techPack && (

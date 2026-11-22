@@ -9,7 +9,10 @@ const QUALITY = process.env.OPENAI_IMAGE_QUALITY || "medium";
 const PORTRAIT = "1024x1536";
 const API = "https://api.openai.com/v1/images";
 
-export class ImageGenError extends Error {}
+export class ImageGenError extends Error {
+  /** Shown to the user as-is; also tells background jobs not to retry. */
+  readonly userFacing = true;
+}
 
 type InlineImage = { mime: string; data: Buffer };
 

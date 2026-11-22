@@ -9,8 +9,9 @@ import {
   Brand,
   ChatMessage,
   DetailSuggestSchema,
-  FlatDrawing,
-  FlatDrawingSchema,
+  FlatFrontBack,
+  FlatFrontBackSchema,
+  MeasurementGuideSchema,
   RfqSchema,
   TechnicalSketch,
   TechnicalSketchSchema,
@@ -44,7 +45,10 @@ function brandBlock(brand: Brand | null) {
   return `BRAND DNA (the designer's saved brand settings):\n${JSON.stringify(brand, null, 2)}`;
 }
 
-export class AiError extends Error {}
+export class AiError extends Error {
+  /** Shown to the user as-is; also tells background jobs not to retry. */
+  readonly userFacing = true;
+}
 
 async function imageBlocks(
   productId: string,
@@ -116,6 +120,7 @@ export async function runTechPackTurn(opts: {
 const KIND_LABEL: Record<string, string> = {
   "tech pack": "Tech pack chat",
   "set of drawings": "Flat sketches",
+  "measurement guide": "Flat sketches",
   "technical sketch": "Technical sketch",
   "detail list": "Detail finder",
   email: "Factory email",
@@ -200,10 +205,9 @@ async function structuredCall<S extends z.ZodType>(
 
 const FLAT_INSTRUCTIONS = `You are a senior technical designer who draws technical flats (CAD flat sketches) for women's loungewear tech packs. You write the drawings directly as SVG code.
 
-Return three complete, standalone SVG documents:
+Return two complete, standalone SVG documents:
 1. front: the FRONT view of the garment(s), laid flat and perfectly symmetrical.
 2. back: the BACK view, same scale and style.
-3. measurementGuide: the same front view with every point of measure drawn on it.
 If the product is a set (e.g. top + pants), draw each piece side by side or stacked in the same SVG, at the same scale.
 
 Drawing rules (industry-standard flat style):
@@ -217,21 +221,40 @@ Drawing rules (industry-standard flat style):
 - Use only these elements: svg, g, rect, path, line, polyline, polygon, circle, ellipse, text, defs, marker. Do NOT use <use>, <image>, <foreignObject>, <style>, scripts, CSS classes, external fonts or links.
 - No text on front and back except a small view label at the bottom ("FRONT" / "BACK"), font-family Arial, font-size 16, fill #111.
 
-measurementGuide rules:
-- Redraw the front flat with outlines in light grey (#9a9a9a, stroke-width 1.5).
+Keep each SVG clean and compact: use paths, avoid thousands of tiny segments. \`notes\` is one or two plain sentences for the designer about anything you assumed.`;
+
+const GUIDE_INSTRUCTIONS = `You are a senior technical designer. You are given the FRONT technical flat (SVG) and the tech pack. Produce the MEASUREMENT GUIDE: the same front drawing with every point of measure drawn on it, as on the points-of-measure page of a factory tech pack.
+
+Rules:
+- Keep the garment drawing (same paths and proportions) but recolour its outlines light grey (#9a9a9a, stroke-width 1.5). Keep the white background rect first. You may enlarge the viewBox for labels.
 - Add a dimension line for every point of measure in the tech pack that is measurable on the front, in blue (#1f5fbf, stroke-width 1.5) with small arrowheads at both ends (define one <marker> in <defs>, refer to it with marker-start/marker-end="url(#arrow)").
 - Put the exact POM code from the tech pack (e.g. "T-A", "P-C") in a small white rounded label next to each line (font-family Arial, font-size 14, bold, fill #1f5fbf).
 - Place lines where the how-to-measure note says (e.g. chest 2.5 cm below armhole, hip at the stated depth). Points that can only be measured on the back (back rise, back neck drop) go on a small grey back outline in a corner, or are left out.
+- Only these elements: svg, g, rect, path, line, polyline, polygon, circle, ellipse, text, defs, marker. No <use>, <image>, <style>, scripts or links.`;
 
-Keep each SVG clean and compact: use paths, avoid thousands of tiny segments. \`notes\` is one or two plain sentences for the designer about anything you assumed.`;
+/** Measurement guide from an existing front flat (second half of the flats job). */
+export async function drawMeasurementGuide(opts: { techPack: TechPack; frontSvg: string }) {
+  return structuredCall(MeasurementGuideSchema, {
+    system: [{ type: "text", text: GUIDE_INSTRUCTIONS }],
+    messages: [
+      {
+        role: "user",
+        content: `TECH PACK (JSON):\n${JSON.stringify({ sizes: opts.techPack.sizes, baseSize: opts.techPack.baseSize, measurements: opts.techPack.measurements })}\n\nFRONT FLAT SVG:\n${opts.frontSvg}`,
+      },
+    ],
+    what: "measurement guide",
+    effort: "low",
+  });
+}
 
+/** Front and back technical flats (first half of the flats job). */
 export async function drawFlats(opts: {
   productId: string;
   techPack: TechPack;
   instruction: string;
   previous: { front: string; back: string } | null;
   referenceImages: string[];
-}): Promise<FlatDrawing> {
+}): Promise<FlatFrontBack> {
   const { productId, techPack, instruction, previous, referenceImages } = opts;
 
   const parts: string[] = [
@@ -257,7 +280,7 @@ export async function drawFlats(opts: {
         : "Draw the technical flats for this tech pack.",
   );
 
-  return structuredCall(FlatDrawingSchema, {
+  return structuredCall(FlatFrontBackSchema, {
     system: [{ type: "text", text: FLAT_INSTRUCTIONS, cache_control: { type: "ephemeral" } }],
     messages: [
       {

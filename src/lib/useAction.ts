@@ -1,12 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { Product } from "./schema";
+import { Job, Product } from "./schema";
+import { watchJob } from "./jobsClient";
 
-/** Small helper for buttons that call an API route and get the updated product back. */
+/**
+ * Small helper for buttons that call an API route and get the updated product back.
+ * If the route starts a background job instead (HTTP 202 with { job }), it follows
+ * the job's steps until it finishes and keeps the product fresh along the way.
+ */
 export function useAction(onUpdate: (p: Product) => void) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [job, setJob] = useState<Job | null>(null);
 
   async function run(url: string, method: string, body?: object, label = "Working…") {
     setBusy(label);
@@ -22,6 +28,16 @@ export function useAction(onUpdate: (p: Product) => void) {
         setError(data.error ?? "Something went wrong.");
         return false;
       }
+      if (res.status === 202 && data.job) {
+        setJob(data.job);
+        const { job: finished } = await watchJob(data.job as Job, { onProgress: setJob, onProduct: onUpdate });
+        setJob(null);
+        if (finished.status !== "done") {
+          setError(finished.error ?? "The job stopped before it finished. Please try again.");
+          return false;
+        }
+        return true;
+      }
       onUpdate(data as Product);
       return true;
     } catch {
@@ -32,7 +48,7 @@ export function useAction(onUpdate: (p: Product) => void) {
     }
   }
 
-  return { run, busy, error, setError };
+  return { run, busy, error, setError, job };
 }
 
 /** Shrink a photo in the browser so uploads stay small (longest side `max` px, JPEG). */

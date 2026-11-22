@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Activity, Check, ChevronDown, Loader2, X } from "lucide-react";
+import { TRAY_EVENT as EVENT, TrayJob, trayEnd, trayJobs as jobs, trayStart } from "@/lib/jobsClient";
 
 type Group = { name: string; cost: number; count: number };
 type Summary = {
@@ -15,8 +16,8 @@ type Summary = {
   byProduct: Group[];
   recent: { at: string; kind: string; productName: string | null; costUsd: number; provider: string }[];
 };
-type Job = { id: number; label: string; startedAt: number };
-type Toast = { id: number; text: string; ok: boolean };
+type Job = TrayJob;
+type Toast = { id: string; text: string; ok: boolean };
 
 export function money(v: number) {
   if (v === 0) return "$0.00";
@@ -43,11 +44,8 @@ function jobLabel(url: string, body: unknown): string | null {
   if (!m) return null;
   const rest = m[1];
   if (rest === "chat") return "Tech pack update";
-  if (rest === "views") return "Product views";
   if (rest === "mockups") return "Mockup";
   if (/^mockups\/[^/]+$/.test(rest)) return "Mockup edit";
-  if (rest === "flats") return "Flat sketches";
-  if (rest === "flats/technical") return "Technical sketch";
   if (rest === "details") return b.action === "suggest" ? "Detail finder" : null;
   if (/^details\/[^/]+$/.test(rest)) return "Close-up";
   if (rest === "prints") return "Print file";
@@ -56,9 +54,6 @@ function jobLabel(url: string, body: unknown): string | null {
   return null;
 }
 
-const EVENT = "jobs:changed";
-const jobs: Job[] = [];
-let nextId = 1;
 
 /** Wrap fetch once so every AI request shows up as a running job. */
 function installFetchHook() {
@@ -71,18 +66,15 @@ function installFetchHook() {
     const method = (init?.method ?? (input instanceof Request ? input.method : "GET")).toUpperCase();
     const label = method === "POST" ? jobLabel(url, init?.body) : null;
     if (!label) return original(input, init);
-    const job: Job = { id: nextId++, label, startedAt: Date.now() };
-    jobs.push(job);
-    window.dispatchEvent(new CustomEvent(EVENT, { detail: { type: "start", job } }));
+    const id = `req-${Math.random().toString(36).slice(2)}`;
+    trayStart(id, label);
     let ok = false;
     try {
       const res = await original(input, init);
       ok = res.ok;
       return res;
     } finally {
-      const i = jobs.indexOf(job);
-      if (i >= 0) jobs.splice(i, 1);
-      window.dispatchEvent(new CustomEvent(EVENT, { detail: { type: "end", job, ok } }));
+      trayEnd(id, ok);
     }
   };
 }

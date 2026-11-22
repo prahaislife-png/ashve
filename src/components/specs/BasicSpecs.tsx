@@ -11,7 +11,7 @@ type Tab = "info" | "colours" | "materials" | "construction";
 export default function BasicSpecs({ product, onUpdate }: { product: Product; onUpdate: (p: Product) => void }) {
   const tp = product.techPack!;
   const [tab, setTab] = useState<Tab>("info");
-  const { run, busy, error } = useAction(onUpdate);
+  const { run, busy, error, job } = useAction(onUpdate);
 
   return (
     <Section
@@ -20,7 +20,7 @@ export default function BasicSpecs({ product, onUpdate }: { product: Product; on
       subtitle="Product information, colours, materials and construction, written from your brief"
     >
       <ProductViews product={product} run={run} busy={busy} compact />
-      <Status busy={busy} error={error} />
+      <Status busy={busy} error={error} job={job} />
 
       {tp.openQuestions.length > 0 && (
         <div className="mt-6 rounded-lg border-l-[3px] border-warn bg-warn-soft px-4 py-3 text-[13.5px] text-warn-ink">

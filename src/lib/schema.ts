@@ -314,16 +314,36 @@ export type Product = {
   rfq?: { subject: string; body: string; at: string } | null;
 };
 
-export const FlatDrawingSchema = z.object({
+export const FlatFrontBackSchema = z.object({
   front: z.string().describe("Complete standalone SVG document: front technical flat"),
   back: z.string().describe("Complete standalone SVG document: back technical flat"),
-  measurementGuide: z
-    .string()
-    .describe("Complete standalone SVG document: front flat in grey with labelled point-of-measure lines"),
   notes: z.string().describe("One or two sentences for the designer about the drawings"),
 });
 
-export type FlatDrawing = z.infer<typeof FlatDrawingSchema>;
+export type FlatFrontBack = z.infer<typeof FlatFrontBackSchema>;
+
+export const MeasurementGuideSchema = z.object({
+  svg: z
+    .string()
+    .describe("Complete standalone SVG document: front flat in grey with labelled point-of-measure lines"),
+});
+
+/* ---------- Background jobs ---------- */
+
+export type JobKind = "flats" | "views" | "technical";
+export type JobStepState = "waiting" | "running" | "done" | "failed";
+
+export type Job = {
+  id: string;
+  productId: string;
+  kind: JobKind;
+  label: string;
+  status: "running" | "done" | "failed";
+  steps: { key: string; label: string; state: JobStepState }[];
+  error: string | null;
+  createdAt: string;
+  finishedAt: string | null;
+};
 
 export const TechnicalSketchSchema = z.object({
   svg: z.string().describe("Complete standalone SVG: front flat with numbered construction callouts"),

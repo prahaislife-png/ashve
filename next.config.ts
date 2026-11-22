@@ -1,7 +1,7 @@
+import { withWorkflow } from "workflow/next";
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {
-  /* config options here */
-};
+const nextConfig: NextConfig = {};
 
-export default nextConfig;
+// Enables "use workflow" / "use step" for the background jobs in src/workflows.
+export default withWorkflow(nextConfig);

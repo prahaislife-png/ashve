@@ -9,6 +9,8 @@ import { withUsageContext } from "./usage";
 export type Ctx<P = { id: string }> = { params: Promise<P> };
 
 export class UserError extends Error {
+  /** Shown to the user as-is; also tells background jobs not to retry. */
+  readonly userFacing = true;
   constructor(message: string, public status = 400) {
     super(message);
   }
@@ -90,19 +92,31 @@ export async function mutateProduct(
   fn: (p: Product) => Promise<void> | void,
 ): Promise<NextResponse> {
   try {
-    const product = await getProduct(id);
-    if (!product) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    const before = structuredClone(product);
-    // Tag every AI call made inside `fn` with this product for the usage monitor.
-    await withUsageContext(product.id, product.name, () => fn(product));
-    const saved = await withLock(id, async () => {
-      const latest = (await getProduct(id)) ?? before;
-      return saveProduct(mergeChanges(before, product, latest));
-    });
+    const saved = await changeProduct(id, fn);
+    if (!saved) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(saved);
   } catch (error) {
     return errorResponse(error);
   }
+}
+
+/**
+ * The same safe read-change-merge-save, for code that isn't a web request
+ * (background job steps). Returns null if the product doesn't exist.
+ */
+export async function changeProduct(
+  id: string,
+  fn: (p: Product) => Promise<void> | void,
+): Promise<Product | null> {
+  const product = await getProduct(id);
+  if (!product) return null;
+  const before = structuredClone(product);
+  // Tag every AI call made inside `fn` with this product for the usage monitor.
+  await withUsageContext(product.id, product.name, () => fn(product));
+  return withLock(id, async () => {
+    const latest = (await getProduct(id)) ?? before;
+    return saveProduct(mergeChanges(before, product, latest));
+  });
 }
 
 export function errorResponse(error: unknown) {

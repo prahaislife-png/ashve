@@ -28,5 +28,6 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!login|api/login|_next/static|_next/image|favicon.ico).*)"],
+  // Workflow's internal endpoints (.well-known/workflow) must not be blocked, or background jobs stall.
+  matcher: ["/((?!login|api/login|_next/static|_next/image|favicon.ico|\\.well-known/workflow/).*)"],
 };

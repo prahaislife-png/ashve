@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Check, Circle, Loader2, X } from "lucide-react";
+import type { Job } from "@/lib/schema";
 
 /** A spec section: hairline rule, heading, then content on the page (no card around it). */
 export function Section({
@@ -117,23 +119,53 @@ function fmt(s: number) {
  * Progress for an AI job: what is happening, how long it has been running,
  * and that it's fine to keep working. Announced politely to screen readers.
  */
-export function Status({ busy, error }: { busy: string | null; error: string | null }) {
+export function Status({
+  busy,
+  error,
+  job,
+}: {
+  busy: string | null;
+  error: string | null;
+  job?: Job | null;
+}) {
   const elapsed = useElapsed(!!busy);
   return (
     <div aria-live="polite" role="status">
       {busy && (
-        <div className="mt-4 flex items-center gap-3 rounded-lg bg-accent-soft px-3.5 py-2.5 text-[13.5px] text-ink">
-          <span className="relative flex h-2 w-2 shrink-0">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-50" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
-          </span>
-          <span className="flex-1">{busy}</span>
-          <span className="num shrink-0 text-ink-2">{fmt(elapsed)}</span>
+        <div className="mt-4 rounded-lg bg-accent-soft px-3.5 py-2.5 text-[13.5px] text-ink">
+          <div className="flex items-center gap-3">
+            <span className="relative flex h-2 w-2 shrink-0">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-50" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
+            </span>
+            <span className="flex-1">{job ? job.label : busy}</span>
+            <span className="num shrink-0 text-ink-2">{fmt(elapsed)}</span>
+          </div>
+          {job && job.steps.length > 0 && (
+            <ol className="mt-2 space-y-1 pl-5">
+              {job.steps.map((s) => (
+                <li key={s.key} className="flex items-center gap-2 text-[13px]">
+                  {s.state === "done" ? (
+                    <Check size={13} className="text-ok" aria-label="Done" />
+                  ) : s.state === "running" ? (
+                    <Loader2 size={13} className="animate-spin text-accent" aria-label="In progress" />
+                  ) : s.state === "failed" ? (
+                    <X size={13} className="text-danger" aria-label="Failed" />
+                  ) : (
+                    <Circle size={11} className="ml-px text-line-strong" aria-label="Waiting" />
+                  )}
+                  <span className={s.state === "waiting" ? "text-muted" : "text-ink"}>{s.label}</span>
+                </li>
+              ))}
+            </ol>
+          )}
         </div>
       )}
-      {busy && elapsed > 20 && (
+      {busy && (job || elapsed > 20) && (
         <p className="mt-1.5 text-[12.5px] text-muted">
-          You can keep working on other sections. This finishes on its own.
+          {job
+            ? "This runs in the background. You can keep working, or even close the page; it finishes on its own."
+            : "You can keep working on other sections. This finishes on its own."}
         </p>
       )}
       {error && (

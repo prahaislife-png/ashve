@@ -42,7 +42,7 @@ export default function FlatSketches({ product, onUpdate }: { product: Product; 
   const [tab, setTab] = useState<Tab>("flats");
   const [instruction, setInstruction] = useState("");
   const [colour, setColour] = useState(tp.colorways[0]?.hex ?? "#d8cfbf");
-  const { run, busy, error } = useAction(onUpdate);
+  const { run, busy, error, job } = useAction(onUpdate);
 
   const sets = product.flats ?? [];
   const current = sets.at(-1);
@@ -298,7 +298,7 @@ export default function FlatSketches({ product, onUpdate }: { product: Product; 
           </div>
         )}
       </div>
-      <Status busy={busy} error={error} />
+      <Status busy={busy} error={error} job={job} />
     </Section>
   );
 }

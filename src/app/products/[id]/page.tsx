@@ -4,7 +4,8 @@ import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, Download, MessageSquare, MoreVertical, Trash2, X } from "lucide-react";
-import { OutputKey, Product } from "@/lib/schema";
+import { Job, OutputKey, Product } from "@/lib/schema";
+import { watchJob } from "@/lib/jobsClient";
 import { Brief } from "@/components/ChatPanel";
 import ChatPanel from "@/components/ChatPanel";
 import DesignStep from "@/components/steps/DesignStep";
@@ -54,6 +55,22 @@ export default function ProductPage({
       // ignore
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  // Pick up background jobs that are still running (e.g. after a reload) and refresh when they finish.
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/products/${id}/jobs`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : { jobs: [] }))
+      .then(({ jobs }: { jobs: Job[] }) => {
+        for (const j of jobs) {
+          watchJob(j, { onProduct: (p) => !cancelled && setProduct(p) });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   // Lets the usage monitor move out of the way of the chat drawer.
