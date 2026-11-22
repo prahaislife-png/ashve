@@ -5,7 +5,7 @@ import { Tag, Tags, Trash2, Upload, Wand2 } from "lucide-react";
 import { emptyLabels, Product } from "@/lib/schema";
 import { fileUrl } from "@/lib/urls";
 import { readAsDataUrl, useAction } from "@/lib/useAction";
-import { Section, Status } from "./Section";
+import { COST, Cost, Section, Status } from "./Section";
 
 const POSITIONS = {
   product: ["Inside back neck", "Inside back waist", "Left side seam", "Centre back hem", "Inside right seam"],
@@ -21,9 +21,9 @@ export default function LabelsTags({ product, onUpdate }: { product: Product; on
   return (
     <Section
       id="labels"
-      title="Labels & Tags"
-      subtitle="Product labels and hang tags for manufacturing documentation"
-      badge={<span className="rounded-full border border-line px-2 text-[11px] text-muted">Care & branding</span>}
+      title="Labels and tags"
+      subtitle="The brand label, care label and hang tag, with where each one is sewn or attached"
+      
     >
       <div className="grid gap-4 sm:grid-cols-2">
         {(["product", "hangTag"] as const).map((slot) => (
@@ -36,12 +36,12 @@ export default function LabelsTags({ product, onUpdate }: { product: Product; on
             value={labels[slot]}
             positions={POSITIONS[slot]}
             busy={!!busy}
-            onGenerate={(notes) => run(base, "POST", { slot, mode: "ai", notes }, "Designing label artworkâ€¦ about 30â€“60 seconds")}
+            onGenerate={(notes) => run(base, "POST", { slot, mode: "ai", notes }, "Designing label artwork… about 30–60 seconds")}
             onUpload={async (f) => {
               if (f.size > 3 * 1024 * 1024) return setError("That file is over 3 MB. Save it smaller (e.g. 2000 px PNG) and try again.");
-              run(base, "POST", { slot, mode: "upload", dataUrl: await readAsDataUrl(f) }, "Uploadingâ€¦");
+              run(base, "POST", { slot, mode: "upload", dataUrl: await readAsDataUrl(f) }, "Uploading…");
             }}
-            onPatch={(body) => run(base, "PATCH", { slot, ...body }, "Savingâ€¦")}
+            onPatch={(body) => run(base, "PATCH", { slot, ...body }, "Saving…")}
           />
         ))}
       </div>
@@ -99,7 +99,7 @@ function Slot({
   const options = positions.includes(value.position) ? positions : [value.position, ...positions];
 
   return (
-    <div className="rounded-xl border border-line">
+    <div className="rounded-xl bg-card shadow-elev-sm">
       <div className="flex items-center gap-2 border-b border-line px-3 py-2.5">
         {icon}
         <div>
@@ -109,7 +109,7 @@ function Slot({
       </div>
       <div className="space-y-2 p-3">
         {value.file ? (
-          <div className="relative overflow-hidden rounded-lg border border-line bg-white">
+          <div className="artifact relative">
             <a href={fileUrl(productId, value.file)} target="_blank" rel="noreferrer">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={fileUrl(productId, value.file)} alt={title} className="aspect-[3/2] w-full object-contain" />
@@ -119,7 +119,7 @@ function Slot({
             </button>
           </div>
         ) : (
-          <button className="flex aspect-[3/1] w-full flex-col items-center justify-center rounded-lg border border-line bg-white text-xs text-muted hover:border-accent" disabled={busy} onClick={() => input.current?.click()}>
+          <button className="drafting-grid flex aspect-[3/1] w-full flex-col items-center justify-center rounded-lg text-[12.5px] text-[#5b6270] shadow-elev-sm hover:shadow-elev-md" disabled={busy} onClick={() => input.current?.click()}>
             <Upload size={15} className="mb-1" /> Click to upload
           </button>
         )}
@@ -135,11 +135,11 @@ function Slot({
           }}
         />
         <button
-          className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-warn-soft py-2.5 text-xs font-medium text-warn-ink hover:brightness-95 disabled:opacity-50"
+          className="btn w-full"
           disabled={busy}
           onClick={() => onGenerate(notesRef.current?.value ?? value.notes)}
         >
-          <Wand2 size={13} /> {value.file ? "Regenerate with AI" : "Generate with AI"}
+          <Wand2 size={13} /> {value.file ? "Redesign with AI" : "Design with AI"} <Cost usd={COST.label} />
         </button>
         <label className="block">
           <span className="field-label">Position</span>
@@ -154,7 +154,7 @@ function Slot({
           <input
             ref={notesRef}
             className="input mt-0.5"
-            placeholder="e.g. 2 cm Ã— 4 cm, cream ground, gold thread"
+            placeholder="e.g. 2 cm × 4 cm, cream ground, gold thread"
             defaultValue={value.notes}
             onBlur={(e) => e.target.value !== value.notes && onPatch({ notes: e.target.value })}
           />

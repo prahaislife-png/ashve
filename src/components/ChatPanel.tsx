@@ -106,7 +106,7 @@ export default function ChatPanel({
     <div className={`flex min-h-0 flex-col ${className}`}>
       <div className="flex items-center gap-2 border-b border-line px-4 py-3">
         <Sparkles size={15} className="text-accent" />
-        <span className="text-sm font-medium">Design assistant</span>
+        <span className="text-[13.5px] font-medium">Design assistant</span>
       </div>
 
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4 text-sm">
@@ -120,7 +120,7 @@ export default function ChatPanel({
           <div
             key={i}
             className={`whitespace-pre-wrap rounded-xl p-3 leading-relaxed ${
-              m.role === "user" ? "ml-6 bg-accent-soft" : "mr-6 border border-line bg-card"
+              m.role === "user" ? "ml-8 bg-accent-soft text-ink" : "mr-4 bg-card text-ink shadow-elev-sm"
             }`}
           >
             <Photos srcs={(m.images ?? []).map((n) => fileUrl(product.id, n))} />
@@ -129,17 +129,17 @@ export default function ChatPanel({
         ))}
         {pending && (
           <>
-            <div className="ml-6 whitespace-pre-wrap rounded-xl bg-accent-soft p-3">
+            <div className="ml-8 whitespace-pre-wrap rounded-xl bg-accent-soft p-3 text-ink">
               <Photos srcs={pending.photos} />
               {pending.text}
             </div>
-            <div className="mr-6 flex items-center gap-2 rounded-xl border border-line bg-card p-3 text-muted">
+            <div className="mr-4 flex items-center gap-2 rounded-xl bg-card p-3 text-ink-2 shadow-elev-sm" role="status">
               <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-accent" />
               {product.techPack ? "Updating the tech pack…" : "Writing your tech pack… about a minute"}
             </div>
           </>
         )}
-        {error && <div className="rounded-xl bg-warn-soft p-3 text-warn-ink">{error}</div>}
+        {error && <div className="rounded-xl bg-warn-soft p-3 text-warn-ink" role="alert">{error}</div>}
         <div ref={end} />
       </div>
 
@@ -168,7 +168,7 @@ export default function ChatPanel({
             ))}
           </div>
         )}
-        <div className="card flex items-end gap-1 p-1.5">
+        <div className="card flex items-end gap-1 p-1.5 transition-shadow focus-within:shadow-elev-lg">
           <button
             type="button"
             className="btn btn-ghost h-8 w-8 p-0"
@@ -179,7 +179,8 @@ export default function ChatPanel({
             <ImagePlus size={16} />
           </button>
           <textarea
-            className="max-h-40 min-h-8 flex-1 resize-none bg-transparent px-1 py-1.5 text-sm outline-none"
+            className="max-h-40 min-h-8 flex-1 resize-none bg-transparent px-1 py-1.5 text-[14px] outline-none placeholder:text-muted"
+            aria-label="Message the design assistant"
             rows={2}
             placeholder={product.techPack ? "Ask for a change…" : "Describe your piece…"}
             value={message}
@@ -199,6 +200,9 @@ export default function ChatPanel({
             <ArrowUp size={15} />
           </button>
         </div>
+        <p className="mt-1.5 px-1 text-[12px] text-muted">
+          Each change rewrites the whole tech pack, about $0.15. Shift+Enter for a new line.
+        </p>
         <input
           ref={fileInput}
           type="file"

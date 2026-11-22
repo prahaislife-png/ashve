@@ -5,7 +5,7 @@ import { MapPin, Sparkles, Trash2, ZoomIn } from "lucide-react";
 import { DetailPin, MOCKUP_VIEWS, Product, productViews } from "@/lib/schema";
 import { fileUrl } from "@/lib/urls";
 import { useAction } from "@/lib/useAction";
-import { Section, Status, Tabs } from "./Section";
+import { COST, Cost, Section, Status, Tabs } from "./Section";
 
 type Tab = "detail" | "closeup" | "component";
 
@@ -82,8 +82,8 @@ export default function DetailedSpecs({ product, onUpdate }: { product: Product;
   return (
     <Section
       id="details"
-      title="Detailed Specs"
-      subtitle="Every close-up, component and detail callout on one board"
+      title="Detailed specs"
+      subtitle="Numbered callouts on the product, close-ups of each detail, and every component"
       badge={pins.length ? <span className="badge-ok">{pins.length} details</span> : null}
     >
       <Tabs
@@ -108,7 +108,7 @@ export default function DetailedSpecs({ product, onUpdate }: { product: Product;
                     <button
                       key={m.id}
                       onClick={() => setImageFile(m.file)}
-                      className={`h-16 w-14 shrink-0 overflow-hidden rounded-lg border bg-white ${image === m.file ? "border-accent ring-2 ring-accent-soft" : "border-line"}`}
+                      className={`h-16 w-14 shrink-0 overflow-hidden rounded-lg bg-artifact shadow-elev-sm ${image === m.file ? "ring-2 ring-accent" : ""}`}
                       title={MOCKUP_VIEWS[m.view]}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -138,10 +138,10 @@ export default function DetailedSpecs({ product, onUpdate }: { product: Product;
                   disabled={!!busy || !image}
                   onClick={() => run(base, "POST", { action: "suggest", image }, "Finding the key details… about 30 seconds")}
                 >
-                  <Sparkles size={14} /> Find details with AI
+                  <Sparkles size={14} /> Find details with AI <Cost usd={COST.details} />
                 </button>
                 {sel ? (
-                  <div className="rounded-xl border border-line p-3">
+                  <div className="rounded-xl bg-card p-3 shadow-elev-sm">
                     <div className="mb-2 flex items-center gap-2 text-xs text-muted">
                       <MapPin size={13} /> Detail {sel.n}
                     </div>
@@ -170,7 +170,7 @@ export default function DetailedSpecs({ product, onUpdate }: { product: Product;
                         disabled={!!busy}
                         onClick={() => run(`${base}/${sel.id}`, "POST", {}, "Making a close-up… about 30 seconds")}
                       >
-                        <ZoomIn size={14} /> {sel.closeup ? "Redo close-up" : "Close-up"}
+                        <ZoomIn size={14} /> {sel.closeup ? "Redo close-up" : "Make close-up"} <Cost usd={COST.closeup} />
                       </button>
                       <button
                         className="btn text-danger"
@@ -209,23 +209,23 @@ export default function DetailedSpecs({ product, onUpdate }: { product: Product;
           ) : (
             <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {pins.map((p) => (
-                <li key={p.id} className="overflow-hidden rounded-xl border border-line">
-                  <div className="flex aspect-square items-center justify-center bg-white">
+                <li key={p.id} className="artifact">
+                  <div className="drafting-grid flex aspect-square items-center justify-center">
                     {p.closeup ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={fileUrl(product.id, p.closeup)} alt={`${p.title} close-up`} className="h-full w-full object-cover" />
                     ) : (
                       <button className="btn" disabled={!!busy} onClick={() => run(`${base}/${p.id}`, "POST", {}, `Making close-up of ${p.title}…`)}>
-                        <ZoomIn size={14} /> Generate
+                        <ZoomIn size={14} /> Make close-up <Cost usd={COST.closeup} />
                       </button>
                     )}
                   </div>
-                  <div className="p-2 text-xs">
+                  <div className="p-2.5 text-[12.5px] text-[#1f2430]">
                     <div className="font-medium">
                       <span className="mr-1 text-pin">{p.n}</span>
                       {p.title}
                     </div>
-                    <div className="mt-0.5 line-clamp-3 text-muted">{p.note}</div>
+                    <div className="mt-0.5 line-clamp-3 text-[#5b6270]">{p.note}</div>
                   </div>
                 </li>
               ))}
@@ -233,12 +233,12 @@ export default function DetailedSpecs({ product, onUpdate }: { product: Product;
           ))}
 
         {tab === "component" && (
-          <ul className="grid gap-2 sm:grid-cols-2">
+          <ul className="grid gap-x-8 sm:grid-cols-2">
             {tp.trims.map((t, i) => (
-              <li key={i} className="rounded-xl border border-line p-3 text-sm">
+              <li key={i} className="border-b border-line py-3">
                 <div className="font-medium">{t.item}</div>
                 <div className="mt-0.5 text-muted">{t.description}</div>
-                <div className="mt-2 flex gap-3 text-xs text-muted">
+                <div className="mt-1.5 flex gap-4 text-[12.5px] text-muted">
                   <span>Placement: {t.placement}</span>
                   <span>Qty: {t.quantity}</span>
                 </div>

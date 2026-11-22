@@ -16,25 +16,28 @@ export default function BasicSpecs({ product, onUpdate }: { product: Product; on
   return (
     <Section
       id="basic"
-      title="Basic Product Specs"
-      subtitle="AI analysis of your product's features, materials and specifications"
+      title="Basic product specs"
+      subtitle="Product information, colours, materials and construction, written from your brief"
     >
-      <ProductViews product={product} run={run} busy={busy} />
+      <ProductViews product={product} run={run} busy={busy} compact />
       <Status busy={busy} error={error} />
 
       {tp.openQuestions.length > 0 && (
-        <div className="mt-5 rounded-lg bg-warn-soft p-3 text-sm text-warn-ink">
-          <p className="font-medium">Still to decide ({tp.openQuestions.length})</p>
-          <ul className="mt-1 list-disc space-y-0.5 pl-5">
+        <div className="mt-6 rounded-lg border-l-[3px] border-warn bg-warn-soft px-4 py-3 text-[13.5px] text-warn-ink">
+          <p className="font-medium">
+            {tp.openQuestions.length} {tp.openQuestions.length === 1 ? "decision" : "decisions"} before this goes to a
+            factory
+          </p>
+          <ul className="mt-1.5 list-disc space-y-0.5 pl-5">
             {tp.openQuestions.map((q, i) => (
               <li key={i}>{q}</li>
             ))}
           </ul>
-          <p className="mt-2 text-xs">Answer these in the chat and the tech pack updates.</p>
+          <p className="mt-2 text-[12.5px]">Answer them in the assistant and the tech pack updates.</p>
         </div>
       )}
 
-      <div className="mt-5">
+      <div className="mt-7">
         <Tabs
           value={tab}
           onChange={setTab}
@@ -49,7 +52,7 @@ export default function BasicSpecs({ product, onUpdate }: { product: Product; on
 
       <div className="mt-4">
         {tab === "info" && (
-          <div className="grid gap-2 sm:grid-cols-2">
+          <dl className="grid gap-x-8 sm:grid-cols-2">
             <Field label="Category" value={tp.category} />
             <Field label="Subcategory" value={tp.subcategory} />
             <Field label="Product type" value={tp.productType} />
@@ -76,32 +79,34 @@ export default function BasicSpecs({ product, onUpdate }: { product: Product; on
                 tp.costing.moqPerColor != null && `MOQ ${tp.costing.moqPerColor}/colour`,
               ]
                 .filter(Boolean)
-                .join(" · ")}
+                .join(", ")}
             />
-          </div>
+          </dl>
         )}
 
         {tab === "colours" && (
-          <div className="space-y-4">
+          <div className="space-y-6">
             <div>
-              <div className="field-label mb-2">Colourways</div>
-              <div className="grid gap-2 sm:grid-cols-3">
+              <h3 className="mb-2 text-[13px] font-medium text-ink-2">Colourways</h3>
+              <div className="grid gap-x-6 sm:grid-cols-3">
                 {tp.colorways.map((c, i) => (
-                  <Swatch key={i} name={c.name} hex={c.hex} sub={c.pantone ? `${c.pantone} · ${c.hex}` : c.hex} />
+                  <Swatch key={i} name={c.name} hex={c.hex} sub={c.pantone ? `${c.pantone}  ${c.hex}` : c.hex} />
                 ))}
               </div>
             </div>
             {tp.accentColors.length > 0 && (
               <div>
-                <div className="field-label mb-2">Trim & hardware colours</div>
-                <div className="grid gap-2 sm:grid-cols-3">
+                <h3 className="mb-2 text-[13px] font-medium text-ink-2">Trim and hardware colours</h3>
+                <div className="grid gap-x-6 sm:grid-cols-3">
                   {tp.accentColors.map((c, i) => (
                     <Swatch key={i} name={c.name} hex={c.hex} sub={c.pantone || c.hex} />
                   ))}
                 </div>
               </div>
             )}
-            <Field label="Pattern / texture" value={tp.pattern} />
+            <dl>
+              <Field label="Pattern or texture" value={tp.pattern} />
+            </dl>
           </div>
         )}
 

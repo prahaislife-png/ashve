@@ -49,7 +49,7 @@ export default async function PrintPage({ params }: { params: Promise<{ id: stri
   const pg = () => `PAGE ${++n} / ${total}`;
 
   return (
-    <div className="mx-auto max-w-[210mm] bg-white px-6 py-6 text-[12px] text-ink print:max-w-none print:p-0">
+    <div className="theme-light mx-auto max-w-[210mm] bg-white px-6 py-6 text-[12px] text-ink print:max-w-none print:p-0">
       <div className="no-print mb-6 flex items-center justify-between rounded-lg bg-accent-soft p-3 text-sm">
         <span>In the print window choose “Save as PDF”. Turn on “Background graphics” for colour swatches.</span>
         <PrintButton />

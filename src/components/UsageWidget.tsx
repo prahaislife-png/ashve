@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Activity, ChevronDown, Loader2 } from "lucide-react";
+import { Activity, Check, ChevronDown, Loader2, X } from "lucide-react";
 
 type Group = { name: string; cost: number; count: number };
 type Summary = {
@@ -15,6 +15,8 @@ type Summary = {
   byProduct: Group[];
   recent: { at: string; kind: string; productName: string | null; costUsd: number; provider: string }[];
 };
+type Job = { id: number; label: string; startedAt: number };
+type Toast = { id: number; text: string; ok: boolean };
 
 export function money(v: number) {
   if (v === 0) return "$0.00";
@@ -22,32 +24,65 @@ export function money(v: number) {
   return `$${v.toFixed(2)}`;
 }
 
-const REFRESH = "usage:refresh";
-const RUNNING = "usage:running";
-let inFlight = 0;
+function elapsed(ms: number) {
+  const s = Math.max(0, Math.round(ms / 1000));
+  return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s`;
+}
 
-/**
- * Wrap fetch once so every AI action (POST/PATCH/DELETE to /api/products/...)
- * shows as "running" and refreshes the totals when it finishes.
- */
+/** Name an AI request from its URL and body. Returns null for requests that don't run AI. */
+function jobLabel(url: string, body: unknown): string | null {
+  let b: Record<string, unknown> = {};
+  try {
+    b = typeof body === "string" ? JSON.parse(body) : {};
+  } catch {
+    // not JSON
+  }
+  if (b.mode === "upload") return null;
+  const path = url.replace(/^https?:\/\/[^/]+/, "").split("?")[0];
+  const m = /^\/api\/products\/[^/]+\/(.+)$/.exec(path);
+  if (!m) return null;
+  const rest = m[1];
+  if (rest === "chat") return "Tech pack update";
+  if (rest === "views") return "Product views";
+  if (rest === "mockups") return "Mockup";
+  if (/^mockups\/[^/]+$/.test(rest)) return "Mockup edit";
+  if (rest === "flats") return "Flat sketches";
+  if (rest === "flats/technical") return "Technical sketch";
+  if (rest === "details") return b.action === "suggest" ? "Detail finder" : null;
+  if (/^details\/[^/]+$/.test(rest)) return "Close-up";
+  if (rest === "prints") return "Print file";
+  if (rest === "labels") return "Label design";
+  if (rest === "rfq") return "Quote email";
+  return null;
+}
+
+const EVENT = "jobs:changed";
+const jobs: Job[] = [];
+let nextId = 1;
+
+/** Wrap fetch once so every AI request shows up as a running job. */
 function installFetchHook() {
-  const w = window as unknown as { __usageHooked?: boolean };
-  if (w.__usageHooked) return;
-  w.__usageHooked = true;
+  const w = window as unknown as { __jobsHooked?: boolean };
+  if (w.__jobsHooked) return;
+  w.__jobsHooked = true;
   const original = window.fetch.bind(window);
   window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     const method = (init?.method ?? (input instanceof Request ? input.method : "GET")).toUpperCase();
-    const tracked = method === "POST" && /\/api\/products\/[^/]+\//.test(url);
-    if (!tracked) return original(input, init);
-    inFlight++;
-    window.dispatchEvent(new CustomEvent(RUNNING, { detail: inFlight }));
+    const label = method === "POST" ? jobLabel(url, init?.body) : null;
+    if (!label) return original(input, init);
+    const job: Job = { id: nextId++, label, startedAt: Date.now() };
+    jobs.push(job);
+    window.dispatchEvent(new CustomEvent(EVENT, { detail: { type: "start", job } }));
+    let ok = false;
     try {
-      return await original(input, init);
+      const res = await original(input, init);
+      ok = res.ok;
+      return res;
     } finally {
-      inFlight = Math.max(0, inFlight - 1);
-      window.dispatchEvent(new CustomEvent(RUNNING, { detail: inFlight }));
-      window.dispatchEvent(new Event(REFRESH));
+      const i = jobs.indexOf(job);
+      if (i >= 0) jobs.splice(i, 1);
+      window.dispatchEvent(new CustomEvent(EVENT, { detail: { type: "end", job, ok } }));
     }
   };
 }
@@ -56,8 +91,10 @@ export default function UsageWidget() {
   const path = usePathname();
   const hidden = path === "/login" || /\/print$/.test(path);
   const [data, setData] = useState<Summary | null>(null);
-  const [running, setRunning] = useState(0);
+  const [running, setRunning] = useState<Job[]>([]);
+  const [toasts, setToasts] = useState<Toast[]>([]);
   const [open, setOpen] = useState(false);
+  const [, tick] = useState(0);
   const box = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
@@ -72,19 +109,36 @@ export default function UsageWidget() {
   useEffect(() => {
     if (hidden) return;
     installFetchHook();
+    setRunning([...jobs]);
     load();
-    const onRefresh = () => load();
-    const onRunning = (e: Event) => setRunning((e as CustomEvent<number>).detail);
+    const onJobs = (e: Event) => {
+      const d = (e as CustomEvent<{ type: string; job: Job; ok?: boolean }>).detail;
+      setRunning([...jobs]);
+      if (d.type === "end") {
+        load();
+        // Only announce jobs long enough that she may have looked away.
+        if (Date.now() - d.job.startedAt > 8000) {
+          const t: Toast = { id: d.job.id, ok: !!d.ok, text: d.ok ? `${d.job.label} ready` : `${d.job.label} failed` };
+          setToasts((ts) => [...ts, t]);
+          setTimeout(() => setToasts((ts) => ts.filter((x) => x.id !== t.id)), 7000);
+        }
+      }
+    };
     const onVisible = () => document.visibilityState === "visible" && load();
-    window.addEventListener(REFRESH, onRefresh);
-    window.addEventListener(RUNNING, onRunning);
+    window.addEventListener(EVENT, onJobs);
     document.addEventListener("visibilitychange", onVisible);
     return () => {
-      window.removeEventListener(REFRESH, onRefresh);
-      window.removeEventListener(RUNNING, onRunning);
+      window.removeEventListener(EVENT, onJobs);
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [hidden, load]);
+
+  // Keep the elapsed timers moving while something runs.
+  useEffect(() => {
+    if (running.length === 0) return;
+    const id = setInterval(() => tick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, [running.length]);
 
   useEffect(() => {
     if (!open) return;
@@ -105,46 +159,77 @@ export default function UsageWidget() {
     ? new Date(`${data.month}-01T12:00:00`).toLocaleDateString(undefined, { month: "long", year: "numeric" })
     : "";
   const max = Math.max(0.000001, ...(data?.byKind.map((k) => k.cost) ?? [0]));
+  const first = running[0];
 
   return (
-    <div ref={box} className="usage-widget no-print fixed bottom-4 right-4 z-50 flex flex-col items-end">
+    <div ref={box} className="usage-widget no-print fixed bottom-4 right-4 z-50 flex flex-col items-end gap-2">
+      {/* Finished-job notices */}
+      <div aria-live="polite" className="flex flex-col items-end gap-2">
+        {toasts.map((t) => (
+          <div key={t.id} className="card flex items-center gap-2.5 px-3.5 py-2.5 text-[13.5px] text-ink">
+            {t.ok ? <Check size={15} className="text-ok" /> : <X size={15} className="text-danger" />}
+            {t.text}
+            <button
+              className="ml-1 text-muted hover:text-ink"
+              aria-label="Dismiss"
+              onClick={() => setToasts((ts) => ts.filter((x) => x.id !== t.id))}
+            >
+              <X size={13} />
+            </button>
+          </div>
+        ))}
+      </div>
+
       {open && data && (
-        <div className="card mb-2 max-h-[70vh] w-[320px] overflow-y-auto p-4 text-sm shadow-xl">
+        <div className="card max-h-[70vh] w-[330px] overflow-y-auto p-4 text-[13.5px]" role="dialog" aria-label="Usage and jobs">
+          {running.length > 0 && (
+            <div className="mb-4">
+              <div className="field-label mb-1.5">Running now</div>
+              <ul className="space-y-1">
+                {running.map((j) => (
+                  <li key={j.id} className="flex items-center gap-2">
+                    <Loader2 size={13} className="animate-spin text-accent" />
+                    <span className="flex-1 text-ink">{j.label}</span>
+                    <span className="num text-muted">{elapsed(Date.now() - j.startedAt)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <div className="flex items-baseline justify-between">
-            <div className="h-title">Usage · {monthName}</div>
-            <button className="text-muted" aria-label="Close" onClick={() => setOpen(false)}>
+            <div className="h-title text-[16px]">Usage in {monthName}</div>
+            <button className="text-muted hover:text-ink" aria-label="Close" onClick={() => setOpen(false)}>
               <ChevronDown size={16} />
             </button>
           </div>
-          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-            <div className="rounded-lg bg-panel p-2">
-              <div className="text-base font-semibold">{money(data.totalUsd)}</div>
-              <div className="text-[11px] text-muted">this month</div>
-            </div>
-            <div className="rounded-lg bg-panel p-2">
-              <div className="text-base font-semibold">{money(data.todayUsd)}</div>
-              <div className="text-[11px] text-muted">today</div>
-            </div>
-            <div className="rounded-lg bg-panel p-2">
-              <div className="text-base font-semibold">{data.count}</div>
-              <div className="text-[11px] text-muted">AI actions</div>
-            </div>
-          </div>
+          <dl className="mt-3 grid grid-cols-3 gap-2">
+            {[
+              { k: "This month", v: money(data.totalUsd) },
+              { k: "Today", v: money(data.todayUsd) },
+              { k: "AI actions", v: String(data.count) },
+            ].map((x) => (
+              <div key={x.k} className="rounded-lg bg-panel px-2.5 py-2">
+                <dt className="text-[11.5px] text-muted">{x.k}</dt>
+                <dd className="num text-[16px] font-semibold text-ink">{x.v}</dd>
+              </div>
+            ))}
+          </dl>
 
           {data.byKind.length > 0 ? (
             <>
               <div className="field-label mb-1.5 mt-4">By type</div>
-              <ul className="space-y-1.5">
+              <ul className="space-y-2">
                 {data.byKind.map((k) => (
                   <li key={k.name}>
                     <div className="flex justify-between text-[13px]">
-                      <span>
+                      <span className="text-ink">
                         {k.name} <span className="text-muted">×{k.count}</span>
                       </span>
-                      <span className="tabular-nums">{money(k.cost)}</span>
+                      <span className="num text-ink">{money(k.cost)}</span>
                     </div>
-                    <div className="mt-0.5 h-1 overflow-hidden rounded bg-accent-soft">
-                      <div className="h-full bg-accent" style={{ width: `${(k.cost / max) * 100}%` }} />
+                    <div className="mt-1 h-1 overflow-hidden rounded-full bg-line">
+                      <div className="h-full rounded-full bg-accent" style={{ width: `${(k.cost / max) * 100}%` }} />
                     </div>
                   </li>
                 ))}
@@ -154,8 +239,8 @@ export default function UsageWidget() {
               <ul className="space-y-0.5 text-[13px]">
                 {data.byProvider.map((p) => (
                   <li key={p.name} className="flex justify-between">
-                    <span>{p.name}</span>
-                    <span className="tabular-nums">{money(p.cost)}</span>
+                    <span className="text-ink-2">{p.name}</span>
+                    <span className="num text-ink">{money(p.cost)}</span>
                   </li>
                 ))}
               </ul>
@@ -164,24 +249,24 @@ export default function UsageWidget() {
               <ul className="space-y-0.5 text-[13px]">
                 {data.byProduct.map((p) => (
                   <li key={p.name} className="flex justify-between gap-2">
-                    <span className="truncate">{p.name}</span>
-                    <span className="shrink-0 tabular-nums">{money(p.cost)}</span>
+                    <span className="truncate text-ink-2">{p.name}</span>
+                    <span className="num shrink-0 text-ink">{money(p.cost)}</span>
                   </li>
                 ))}
               </ul>
 
               <div className="field-label mb-1.5 mt-4">Latest</div>
-              <ul className="space-y-1 text-[12px]">
+              <ul className="space-y-1 text-[12.5px]">
                 {data.recent.map((r, i) => (
                   <li key={i} className="flex justify-between gap-2">
-                    <span className="min-w-0 truncate">
-                      <span className="text-muted">
+                    <span className="min-w-0 truncate text-ink-2">
+                      <span className="num text-muted">
                         {new Date(r.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </span>{" "}
                       {r.kind}
-                      {r.productName ? <span className="text-muted"> · {r.productName}</span> : null}
+                      {r.productName ? <span className="text-muted">, {r.productName}</span> : null}
                     </span>
-                    <span className="shrink-0 tabular-nums">{money(r.costUsd)}</span>
+                    <span className="num shrink-0 text-ink">{money(r.costUsd)}</span>
                   </li>
                 ))}
               </ul>
@@ -190,30 +275,33 @@ export default function UsageWidget() {
             <p className="mt-4 text-[13px] text-muted">No AI actions yet this month.</p>
           )}
 
-          <p className="mt-4 border-t border-line pt-2 text-[11px] leading-snug text-muted">
-            Estimated from the tokens each request used, at Anthropic and OpenAI list prices. Your
-            bills on their websites are the final word.
+          <p className="mt-4 border-t border-line pt-2 text-[11.5px] leading-snug text-muted">
+            Estimated from the tokens each request used, at Anthropic and OpenAI list prices. Your bills on their
+            websites are the final word.
           </p>
         </div>
       )}
 
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 rounded-full border border-line bg-card/95 px-3 py-1.5 text-[12.5px] shadow-md backdrop-blur hover:border-accent"
-        aria-label="Usage this month"
+        className="flex items-center gap-2 rounded-full bg-card px-3.5 py-2 text-[13px] text-ink shadow-elev-md transition-shadow hover:shadow-elev-lg"
+        aria-label={first ? `${running.length} AI jobs running. Usage this month` : "Usage this month"}
         aria-expanded={open}
       >
-        {running > 0 ? (
-          <Loader2 size={13} className="animate-spin text-accent" />
+        {first ? (
+          <>
+            <Loader2 size={14} className="animate-spin text-accent" />
+            <span className="font-medium">{first.label}</span>
+            <span className="num text-muted">{elapsed(Date.now() - first.startedAt)}</span>
+            {running.length > 1 && <span className="text-muted">and {running.length - 1} more</span>}
+          </>
         ) : (
-          <Activity size={13} className="text-accent" />
+          <>
+            <Activity size={14} className="text-accent" />
+            <span className="num font-semibold">{data ? money(data.totalUsd) : "…"}</span>
+            <span className="text-muted">this month</span>
+          </>
         )}
-        <span className="font-semibold tabular-nums">{data ? money(data.totalUsd) : "…"}</span>
-        <span className="text-muted">this month</span>
-        {data && data.todayUsd > 0 && (
-          <span className="hidden text-muted sm:inline">· {money(data.todayUsd)} today</span>
-        )}
-        {running > 0 && <span className="text-accent">· {running} running</span>}
       </button>
     </div>
   );

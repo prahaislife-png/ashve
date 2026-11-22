@@ -19,11 +19,12 @@ export default function NavLink({
   return (
     <Link
       href={href}
-      className={`flex items-center gap-2 rounded-lg px-2 py-1.5 ${
-        active ? "bg-accent-soft font-medium" : "text-ink/80 hover:bg-accent-soft"
+      aria-current={active ? "page" : undefined}
+      className={`flex items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors ${
+        active ? "bg-card font-medium text-ink shadow-elev-sm" : "text-ink-2 hover:bg-card hover:text-ink"
       }`}
     >
-      {icon}
+      <span className={active ? "text-accent" : "text-muted"}>{icon}</span>
       {label}
     </Link>
   );

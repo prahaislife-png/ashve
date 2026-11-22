@@ -96,13 +96,13 @@ export default function ProductPage({
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-30 flex h-[57px] items-center gap-2 border-b border-line bg-panel/95 px-3 backdrop-blur">
-        <Link href="/workspace" className="btn btn-ghost h-8 w-8 p-0" aria-label="Back to workspace">
+      <header className="sticky top-0 z-30 flex h-[57px] items-center gap-2 border-b border-line bg-bg/90 px-3 backdrop-blur-md">
+        <Link href="/workspace" className="btn btn-ghost h-8 w-8 p-0" aria-label="Back to all products">
           <ChevronLeft size={17} />
         </Link>
         <input
           key={product.name}
-          className="w-28 min-w-0 truncate bg-transparent text-sm font-medium outline-none sm:w-56"
+          className="w-28 min-w-0 truncate rounded-md bg-transparent px-1.5 py-1 text-[14px] font-medium outline-none hover:bg-panel focus:bg-card sm:w-56"
           defaultValue={product.name}
           aria-label="Product name"
           onBlur={(e) => rename(e.target.value)}
@@ -112,7 +112,7 @@ export default function ProductPage({
             <MoreVertical size={16} />
           </button>
           {menu && (
-            <div className="card absolute left-0 top-9 z-40 w-44 p-1 shadow-lg">
+            <div className="card absolute left-0 top-9 z-40 w-44 p-1">
               <button
                 className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-danger hover:bg-accent-soft"
                 onClick={async () => {
@@ -128,39 +128,42 @@ export default function ProductPage({
           )}
         </div>
 
-        <nav className="mx-auto flex items-center gap-1 text-sm">
+        <nav className="mx-auto flex h-full items-stretch gap-0.5 text-[13.5px]" aria-label="Steps">
           {STEPS.map((s, i) => (
             <div key={s.key} className="flex items-center">
-              {i > 0 && <span className="mx-1 hidden h-px w-8 bg-line sm:block" />}
+              {i > 0 && <span className="mx-2 hidden h-px w-6 bg-line-strong sm:block" aria-hidden="true" />}
               <button
                 onClick={() => setStep(s.key)}
-                className={`flex items-center gap-1.5 border-b-2 px-2 py-4 ${
-                  step === s.key ? "border-ink font-medium" : "border-transparent text-muted hover:text-ink"
+                aria-current={step === s.key ? "step" : undefined}
+                className={`relative flex h-full items-center gap-2 px-2 ${
+                  step === s.key ? "font-medium text-ink" : "text-muted hover:text-ink"
                 }`}
               >
-                <span
-                  className={`flex h-4.5 w-4.5 items-center justify-center rounded-full text-[10px] ${
-                    step === s.key ? "bg-ink text-white" : "border border-line"
-                  }`}
-                >
-                  {i + 1}
-                </span>
+                <span className={`code text-[12px] ${step === s.key ? "text-accent" : ""}`}>{i + 1}</span>
                 <span className="hidden sm:inline">{s.label}</span>
+                {step === s.key && (
+                  <span className="absolute inset-x-1 bottom-0 h-0.5 rounded-full bg-accent" aria-hidden="true" />
+                )}
               </button>
             </div>
           ))}
         </nav>
 
         {step !== "design" && (
-          <button className="btn btn-ghost h-8 px-2" onClick={() => setChatOpen((o) => !o)} aria-label="Chat">
+          <button
+            className={`btn h-8 px-2.5 ${chatOpen ? "" : "btn-ghost"}`}
+            onClick={() => setChatOpen((o) => !o)}
+            aria-label="Design assistant"
+            aria-expanded={chatOpen}
+          >
             <MessageSquare size={15} />
-            <span className="hidden lg:inline">Chat</span>
+            <span className="hidden lg:inline">Assistant</span>
           </button>
         )}
         {product.techPack && (
-          <Link href={`/products/${id}/print`} target="_blank" className="btn h-8 px-2">
+          <Link href={`/products/${id}/print`} target="_blank" className="btn h-8 px-2.5">
             <Download size={15} />
-            <span className="hidden lg:inline">Download summary</span>
+            <span className="hidden lg:inline">Tech pack PDF</span>
           </Link>
         )}
       </header>
@@ -172,7 +175,11 @@ export default function ProductPage({
       {step === "handoff" && <HandoffStep product={product} onUpdate={setProduct} openSpecs={openSpecs} />}
 
       {chatOpen && step !== "design" && (
-        <div className="fixed inset-y-0 right-0 z-40 flex w-full max-w-[420px] flex-col border-l border-line bg-panel shadow-2xl">
+        <div
+          className="fixed inset-y-0 right-0 z-40 flex w-full max-w-[420px] flex-col border-l border-line bg-card shadow-elev-lg"
+          role="dialog"
+          aria-label="Design assistant"
+        >
           <button className="btn btn-ghost absolute right-2 top-2 z-10 h-8 w-8 p-0" aria-label="Close chat" onClick={() => setChatOpen(false)}>
             <X size={16} />
           </button>

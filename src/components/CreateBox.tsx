@@ -78,10 +78,11 @@ export default function CreateBox({ hasBrand }: { hasBrand: boolean }) {
 
   return (
     <div className="mt-8 text-left">
-      <div className="card p-3 shadow-sm">
+      <div className="card p-3 focus-within:shadow-elev-lg transition-shadow">
         <textarea
-          className="min-h-24 w-full resize-none bg-transparent p-1 text-[15px] outline-none placeholder:text-muted"
-          placeholder="e.g. Relaxed linen-blend lounge pant, wide leg, drawstring waist, muted sage"
+          className="min-h-28 w-full resize-none bg-transparent p-1.5 text-[15.5px] outline-none placeholder:text-muted"
+          aria-label="Describe your product"
+          placeholder="Relaxed linen-blend lounge pant, wide leg, drawstring waist, muted sage, sizes XS to XL"
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
@@ -128,14 +129,15 @@ export default function CreateBox({ hasBrand }: { hasBrand: boolean }) {
               e.target.value = "";
             }}
           />
-          <label className="flex cursor-pointer select-none items-center gap-2 text-sm">
-            <span>Brand DNA</span>
+          <label className="flex cursor-pointer select-none items-center gap-2 text-[13.5px] text-ink-2">
+            <span>Use Brand DNA</span>
             <button
               type="button"
               role="switch"
               aria-checked={useBrand}
+              aria-label="Use Brand DNA"
               onClick={() => setUseBrand((v) => !v)}
-              className={`relative h-5 w-9 rounded-full transition ${useBrand ? "bg-accent" : "bg-line"}`}
+              className={`relative h-5 w-9 rounded-full transition ${useBrand ? "bg-accent" : "bg-line-strong"}`}
             >
               <span
                 className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition ${useBrand ? "left-4.5" : "left-0.5"}`}
@@ -143,28 +145,31 @@ export default function CreateBox({ hasBrand }: { hasBrand: boolean }) {
             </button>
           </label>
           {!hasBrand && (
-            <Link href="/brand" className="text-xs text-muted underline">
-              set up
+            <Link href="/brand" className="text-[12.5px] text-accent hover:underline">
+              Set up
             </Link>
           )}
           <div className="flex-1" />
           <button
-            className="btn btn-primary h-9 w-9 rounded-full p-0"
-            aria-label="Create"
+            className="btn btn-primary"
             disabled={busy || (!text.trim() && photos.length === 0)}
             onClick={create}
           >
-            <ArrowUp size={16} />
+            Create product <span className="cost">≈ $0.30</span> <ArrowUp size={15} />
           </button>
         </div>
       </div>
-      {error && <p className="mt-2 text-sm text-danger">{error}</p>}
-      {busy && <p className="mt-2 text-center text-sm text-muted">Opening your product…</p>}
+      {error && <p className="mt-2 text-sm text-danger" role="alert">{error}</p>}
+      {busy && (
+        <p className="mt-2 text-sm text-muted" role="status">
+          Opening your product…
+        </p>
+      )}
 
-      <p className="mt-6 text-center text-xs text-muted">Start from an idea</p>
-      <div className="mt-2 flex flex-wrap justify-center gap-2">
+      <div className="mt-5 flex flex-wrap items-center gap-2">
+        <span className="mr-1 text-[13px] text-muted">Start from</span>
         {STARTERS.map((s) => (
-          <button key={s.label} className="chip" onClick={() => setText(s.prompt)}>
+          <button key={s.label} className="chip" aria-pressed={text === s.prompt} onClick={() => setText(s.prompt)}>
             {s.icon}
             {s.label}
           </button>

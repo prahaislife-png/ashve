@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { MOCKUP_VIEWS, MockupView, PRODUCT_VIEWS, Product } from "@/lib/schema";
 import { fileUrl } from "@/lib/urls";
+import { COST, Cost, Status } from "@/components/specs/Section";
 
 export default function MockupPanel({
   product,
@@ -55,8 +56,8 @@ export default function MockupPanel({
   return (
     <div className="no-print">
       <div>
-        <h2 className="h-title text-lg">Mockups & campaign shots</h2>
-        <p className="text-xs text-muted">Flat lays, on-model and lifestyle images for briefs, decks and Instagram</p>
+        <h2 className="h-title text-[22px]">Mockups and campaign shots</h2>
+        <p className="mt-1 text-[13.5px] text-ink-2">Flat lays, on-model and lifestyle images for briefs, decks and Instagram</p>
       </div>
 
       <form
@@ -105,7 +106,7 @@ export default function MockupPanel({
           onChange={(e) => setNote(e.target.value)}
         />
         <button className="btn btn-primary justify-center" disabled={!!busy}>
-          Create image
+          Create image <Cost usd={COST.mockup} />
         </button>
       </form>
       {refs.length > 0 && (
@@ -115,25 +116,24 @@ export default function MockupPanel({
         </label>
       )}
 
-      {busy && <p className="mt-3 text-sm text-muted">{busy}</p>}
-      {error && <p className="mt-3 rounded-lg bg-warn-soft p-2.5 text-sm text-warn-ink">{error}</p>}
+      <Status busy={busy} error={error} />
 
       {mockups.length > 0 && (
-        <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <ul className="mt-5 grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3">
           {mockups.map((m) => (
-            <li key={m.id} className="overflow-hidden rounded-lg border border-line">
-              <a href={fileUrl(product.id, m.file)} target="_blank" rel="noreferrer">
+            <li key={m.id}>
+              <a href={fileUrl(product.id, m.file)} target="_blank" rel="noreferrer" className="artifact block">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={fileUrl(product.id, m.file)}
                   alt={`${MOCKUP_VIEWS[m.view]} in ${m.colorway}`}
-                  className="aspect-[2/3] w-full bg-accent-soft object-cover"
+                  className="aspect-[2/3] w-full object-cover"
                 />
               </a>
-              <div className="space-y-2 p-2 text-xs">
+              <div className="mt-2 space-y-1.5 text-[12.5px]">
                 <div className="font-medium">
-                  {MOCKUP_VIEWS[m.view]} · {m.colorway}
-                  {m.editedFrom ? " · edited" : ""}
+                  {MOCKUP_VIEWS[m.view]}, {m.colorway}
+                  {m.editedFrom ? " (edited)" : ""}
                 </div>
                 {m.note && <div className="text-muted">“{m.note}”</div>}
                 <div className="flex flex-wrap gap-1">

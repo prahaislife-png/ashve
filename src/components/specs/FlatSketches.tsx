@@ -5,21 +5,21 @@ import { Download, PencilLine, RefreshCw, Wand2 } from "lucide-react";
 import { Product, TechPack } from "@/lib/schema";
 import { fileUrl } from "@/lib/urls";
 import { useAction } from "@/lib/useAction";
-import { Section, Status, Tabs } from "./Section";
+import { COST, Cost, Section, Status, Tabs } from "./Section";
 
 type Tab = "flats" | "pom" | "technical" | "coloured";
 
 function Drawing({ src, label, download }: { src: string; label: string; download?: string }) {
   return (
-    <figure className="rounded-xl border border-line bg-white p-2">
+    <figure className="artifact p-2">
       <a href={src} target="_blank" rel="noreferrer">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={src} alt={label} className="aspect-[4/3] w-full object-contain" />
       </a>
-      <figcaption className="mt-1 flex items-center justify-between px-1 text-xs">
+      <figcaption className="mt-1 flex items-center justify-between px-1 text-[12.5px] text-[#4b5260]">
         <span className="font-medium">{label}</span>
         {download && (
-          <a className="flex items-center gap-1 text-accent hover:underline" href={src} download={download}>
+          <a className="flex items-center gap-1 text-[#2f55a3] hover:underline" href={src} download={download}>
             <Download size={12} /> SVG
           </a>
         )}
@@ -74,29 +74,31 @@ export default function FlatSketches({ product, onUpdate }: { product: Product; 
   return (
     <Section
       id="flats"
-      title="Flat Sketches"
-      subtitle="Flat 2D layouts, measurements and technical drawings for production"
+      title="Flat sketches"
+      subtitle="Technical flats, the measurement guide and construction callouts for the sample room"
       badge={current ? <span className="badge-ok">Ready</span> : null}
     >
       <Tabs
         value={tab}
         onChange={setTab}
         tabs={[
-          { key: "flats", label: "Flat Sketches" },
-          { key: "pom", label: "POM" },
-          { key: "technical", label: "Technical Sketches" },
-          { key: "coloured", label: "Coloured Sketch" },
+          { key: "flats", label: "Flats" },
+          { key: "pom", label: "Points of measure" },
+          { key: "technical", label: "Technical sketch" },
+          { key: "coloured", label: "Coloured sketch" },
         ]}
       />
 
       <div className="mt-4">
         {!current && tab !== "pom" ? (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-panel p-4">
+          <div className="drafting-grid flex flex-wrap items-center justify-between gap-3 rounded-xl px-5 py-6 shadow-elev-sm">
             <div className="flex items-center gap-3">
-              <PencilLine size={18} className="text-muted" />
+              <PencilLine size={18} className="text-[#2f55a3]" />
               <div>
-                <div className="text-sm font-medium">Flat Sketches</div>
-                <div className="text-xs text-muted">Front, back and a measurement guide, drawn to your base-size measurements</div>
+                <div className="font-medium text-[#1f2430]">Draw the technical flats</div>
+                <div className="text-[13px] text-[#4b5260]">
+                  Front, back and a measurement guide, drawn to your sample-size measurements
+                </div>
               </div>
             </div>
             <button
@@ -104,7 +106,7 @@ export default function FlatSketches({ product, onUpdate }: { product: Product; 
               disabled={!!busy}
               onClick={() => run(`/api/products/${product.id}/flats`, "POST", {}, drawLabel)}
             >
-              <Wand2 size={14} /> Generate
+              <Wand2 size={14} /> Draw flats <Cost usd={COST.flats} />
             </button>
           </div>
         ) : null}
@@ -130,7 +132,7 @@ export default function FlatSketches({ product, onUpdate }: { product: Product; 
                 onChange={(e) => setInstruction(e.target.value)}
               />
               <button className="btn" disabled={!!busy}>
-                <RefreshCw size={14} /> {instruction.trim() ? "Fix drawing" : "Redraw from tech pack"}
+                <RefreshCw size={14} /> {instruction.trim() ? "Fix drawing" : "Redraw from tech pack"} <Cost usd={COST.flats} />
               </button>
             </form>
             {older.length > 0 && (
@@ -138,7 +140,7 @@ export default function FlatSketches({ product, onUpdate }: { product: Product; 
                 <summary className="cursor-pointer text-muted">Earlier drawings ({older.length})</summary>
                 <ul className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-6">
                   {older.map((s) => (
-                    <li key={s.id} className="rounded border border-line bg-white p-1 text-xs">
+                    <li key={s.id} className="artifact p-1 text-xs text-[#4b5260]">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={url(s.front)} alt="Earlier front flat" className="aspect-square w-full object-contain" />
                       <div className="mt-1 flex justify-between">
@@ -216,7 +218,7 @@ export default function FlatSketches({ product, onUpdate }: { product: Product; 
                 <tbody>
                   {rows.map((m, r) => (
                     <tr key={r}>
-                      <td className="whitespace-nowrap font-semibold text-pin">{m.code}</td>
+                      <td className="code whitespace-nowrap font-medium text-accent">{m.code}</td>
                       <td>{m.name}</td>
                       <td className="text-muted">{m.howToMeasure}</td>
                       <td className="text-right">
@@ -243,7 +245,7 @@ export default function FlatSketches({ product, onUpdate }: { product: Product; 
                 <ol className="space-y-2 text-sm">
                   {(current.technicalNotes ?? []).map((c) => (
                     <li key={c.n} className="flex gap-2">
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-pin text-[11px] font-bold text-pin">{c.n}</span>
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-accent text-[11px] font-semibold text-accent">{c.n}</span>
                       <span>
                         <span className="font-medium">{c.title}.</span> <span className="text-muted">{c.detail}</span>
                       </span>
@@ -259,7 +261,8 @@ export default function FlatSketches({ product, onUpdate }: { product: Product; 
               disabled={!!busy}
               onClick={() => run(`/api/products/${product.id}/flats/technical`, "POST", {}, "Adding construction callouts… about 1–3 minutes")}
             >
-              <Wand2 size={14} /> {current.technical ? "Redo technical sketch" : "Generate technical sketch"}
+              <Wand2 size={14} /> {current.technical ? "Redo technical sketch" : "Add construction callouts"}{" "}
+              <Cost usd={COST.technical} />
             </button>
           </div>
         )}
@@ -270,7 +273,7 @@ export default function FlatSketches({ product, onUpdate }: { product: Product; 
               {tp.colorways.map((c) => (
                 <button
                   key={c.name}
-                  className={`chip ${colour === c.hex ? "border-accent" : ""}`}
+                  className="chip" aria-pressed={colour === c.hex}
                   onClick={() => setColour(c.hex)}
                 >
                   <span className="h-3.5 w-3.5 rounded-full border border-line" style={{ background: c.hex }} />

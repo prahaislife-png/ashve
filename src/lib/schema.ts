@@ -357,11 +357,11 @@ export const DetailSuggestSchema = z.object({
 export type OutputKey = "basic" | "flats" | "details" | "print" | "labels";
 
 export const OUTPUTS: { key: OutputKey; label: string }[] = [
-  { key: "basic", label: "Basic Product Specs" },
-  { key: "flats", label: "Flat Sketches" },
-  { key: "details", label: "Detailed Specs" },
-  { key: "print", label: "Print Files" },
-  { key: "labels", label: "Labels & Tags" },
+  { key: "basic", label: "Basic product specs" },
+  { key: "flats", label: "Flat sketches" },
+  { key: "details", label: "Detailed specs" },
+  { key: "print", label: "Print files" },
+  { key: "labels", label: "Labels and tags" },
 ];
 
 export function productViews(p: Product) {

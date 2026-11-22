@@ -5,7 +5,7 @@ import { Palette, Repeat, Shapes, Trash2, Upload, Wand2 } from "lucide-react";
 import { Product } from "@/lib/schema";
 import { fileUrl } from "@/lib/urls";
 import { readAsDataUrl, useAction } from "@/lib/useAction";
-import { Section, Status } from "./Section";
+import { COST, Cost, Section, Status } from "./Section";
 
 export default function PrintFiles({ product, onUpdate }: { product: Product; onUpdate: (p: Product) => void }) {
   const tp = product.techPack!;
@@ -25,24 +25,24 @@ export default function PrintFiles({ product, onUpdate }: { product: Product; on
   return (
     <Section
       id="print"
-      title="Print Specs"
-      subtitle="Manufacturing-ready print patterns and surface design files"
+      title="Print files"
+      subtitle="Repeat patterns and placement artwork, with where they go and how big"
       badge={prints.length ? <span className="badge-ok">{prints.length} files</span> : solid ? <span className="badge-ok">Solid, no print</span> : null}
     >
-      <div className="rounded-xl border border-line bg-panel p-4">
+      <div className="rounded-xl bg-card p-4 shadow-elev-sm">
         <div className="flex items-center gap-3">
           <Palette size={18} className="text-muted" />
           <div>
-            <div className="text-sm font-medium">Print file generator</div>
+            <div className="font-medium">Make a print</div>
             <div className="text-xs text-muted">Pattern: {tp.pattern || "not set"}. Uses your colourways.</div>
           </div>
         </div>
-        <div className="mt-3 text-xs text-muted">What should we generate?</div>
+        <div className="mt-4 text-[13px] text-ink-2">Type of print</div>
         <div className="mt-1.5 flex flex-wrap gap-2">
-          <button className={`chip ${kind === "repeat" ? "border-accent bg-accent-soft" : ""}`} onClick={() => setKind("repeat")}>
-            <Repeat size={13} /> Repeat Â· seamless tile
+          <button className="chip" aria-pressed={kind === "repeat"} onClick={() => setKind("repeat")}>
+            <Repeat size={13} /> Seamless repeat
           </button>
-          <button className={`chip ${kind === "placement" ? "border-accent bg-accent-soft" : ""}`} onClick={() => setKind("placement")}>
+          <button className="chip" aria-pressed={kind === "placement"} onClick={() => setKind("placement")}>
             <Shapes size={13} /> Placement graphic
           </button>
         </div>
@@ -63,13 +63,13 @@ export default function PrintFiles({ product, onUpdate }: { product: Product; on
             className="btn btn-primary"
             disabled={!!busy || !description.trim()}
             onClick={async () => {
-              if (await run(base, "POST", { mode: "ai", description, ...meta }, "Creating print artworkâ€¦ about 30â€“60 seconds")) {
+              if (await run(base, "POST", { mode: "ai", description, ...meta }, "Creating print artwork… about 30–60 seconds")) {
                 setDescription("");
                 setName("");
               }
             }}
           >
-            <Wand2 size={14} /> Generate
+            <Wand2 size={14} /> Generate print <Cost usd={COST.print} />
           </button>
           <button className="btn" disabled={!!busy} onClick={() => fileInput.current?.click()}>
             <Upload size={14} /> Upload my artwork
@@ -84,19 +84,19 @@ export default function PrintFiles({ product, onUpdate }: { product: Product; on
               e.target.value = "";
               if (!f) return;
               if (f.size > 3 * 1024 * 1024) return setError("That file is over 3 MB. Save it smaller (e.g. 2000 px PNG) and try again.");
-              run(base, "POST", { mode: "upload", dataUrl: await readAsDataUrl(f), ...meta }, "Uploadingâ€¦");
+              run(base, "POST", { mode: "upload", dataUrl: await readAsDataUrl(f), ...meta }, "Uploading…");
             }}
           />
         </div>
       </div>
 
       {prints.length === 0 ? (
-        <p className="mt-4 text-center text-xs text-muted">No print specs yet.</p>
+        <p className="mt-4 text-[13px] text-muted">No prints yet. Solid fabrics don&apos;t need one.</p>
       ) : (
         <ul className="mt-4 grid gap-3 sm:grid-cols-2">
           {prints.map((p) => (
-            <li key={p.id} className="flex gap-3 rounded-xl border border-line p-3">
-              <a href={fileUrl(product.id, p.file)} target="_blank" rel="noreferrer" className="h-24 w-24 shrink-0 overflow-hidden rounded-lg border border-line bg-white">
+            <li key={p.id} className="flex gap-3 border-b border-line py-3">
+              <a href={fileUrl(product.id, p.file)} target="_blank" rel="noreferrer" className="artifact h-24 w-24 shrink-0">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={fileUrl(product.id, p.file)}
@@ -110,21 +110,21 @@ export default function PrintFiles({ product, onUpdate }: { product: Product; on
                   className="input py-1 text-sm font-medium"
                   defaultValue={p.name}
                   aria-label="Print name"
-                  onBlur={(e) => e.target.value !== p.name && run(`${base}/${p.id}`, "PATCH", { name: e.target.value }, "Savingâ€¦")}
+                  onBlur={(e) => e.target.value !== p.name && run(`${base}/${p.id}`, "PATCH", { name: e.target.value }, "Saving…")}
                 />
                 <div className="text-muted">
-                  {p.kind === "repeat" ? "Seamless repeat" : "Placement"} Â· {p.source === "ai" ? "AI" : "Uploaded"}
+                  {p.kind === "repeat" ? "Seamless repeat" : "Placement"}, {p.source === "ai" ? "AI generated" : "uploaded"}
                 </div>
                 <input
                   className="input py-1 text-xs"
                   defaultValue={p.placement}
                   aria-label="Placement"
-                  onBlur={(e) => e.target.value !== p.placement && run(`${base}/${p.id}`, "PATCH", { placement: e.target.value }, "Savingâ€¦")}
+                  onBlur={(e) => e.target.value !== p.placement && run(`${base}/${p.id}`, "PATCH", { placement: e.target.value }, "Saving…")}
                 />
                 <div className="flex items-center gap-1">
-                  <input className="input w-16 py-1 text-xs" defaultValue={p.widthCm ?? ""} placeholder="W" aria-label="Width cm" onBlur={(e) => run(`${base}/${p.id}`, "PATCH", { widthCm: e.target.value }, "Savingâ€¦")} />
-                  Ã—
-                  <input className="input w-16 py-1 text-xs" defaultValue={p.heightCm ?? ""} placeholder="H" aria-label="Height cm" onBlur={(e) => run(`${base}/${p.id}`, "PATCH", { heightCm: e.target.value }, "Savingâ€¦")} />
+                  <input className="input w-16 py-1 text-xs" defaultValue={p.widthCm ?? ""} placeholder="W" aria-label="Width cm" onBlur={(e) => run(`${base}/${p.id}`, "PATCH", { widthCm: e.target.value }, "Saving…")} />
+                  ×
+                  <input className="input w-16 py-1 text-xs" defaultValue={p.heightCm ?? ""} placeholder="H" aria-label="Height cm" onBlur={(e) => run(`${base}/${p.id}`, "PATCH", { heightCm: e.target.value }, "Saving…")} />
                   cm
                   <div className="flex-1" />
                   <button className="btn btn-ghost px-2 text-danger" aria-label="Delete print" disabled={!!busy} onClick={() => confirm("Delete this print?") && run(`${base}/${p.id}`, "DELETE")}>
