@@ -24,8 +24,15 @@ export async function POST(req: Request) {
   return res;
 }
 
+/** Log out: expire the session cookie with the same settings it was created with. */
 export async function DELETE() {
   const res = NextResponse.json({ ok: true });
-  res.cookies.delete(AUTH_COOKIE);
+  res.cookies.set(AUTH_COOKIE, "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+  });
   return res;
 }

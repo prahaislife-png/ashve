@@ -5,12 +5,15 @@ import { productViews } from "@/lib/schema";
 import { fileUrl } from "@/lib/urls";
 import NavLink from "@/components/NavLink";
 import LogoMark from "@/components/LogoMark";
+import LogoutButton from "@/components/LogoutButton";
 
 export const dynamic = "force-dynamic";
 
 export default async function MainLayout({ children }: { children: React.ReactNode }) {
   const [products, brand] = await Promise.all([listProducts(), getBrand()]);
   const recent = products.slice(0, 8);
+  // Only show "Log out" when a password is in use (on your own computer there may be none).
+  const passwordOn = !!process.env.APP_PASSWORD;
 
   return (
     <div className="flex min-h-screen">
@@ -62,6 +65,9 @@ export default async function MainLayout({ children }: { children: React.ReactNo
           <div className="font-medium text-ink">{brand.name || "Set up your brand"}</div>
           <div className="text-muted">{brand.name ? "Brand DNA is on" : "Fabrics, colours, sizes, fit"}</div>
         </Link>
+        {passwordOn && (
+          <LogoutButton className="mt-1 flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-[13px] text-ink-2 hover:bg-card hover:text-ink" />
+        )}
       </aside>
 
       <div className="min-w-0 flex-1">
@@ -72,6 +78,7 @@ export default async function MainLayout({ children }: { children: React.ReactNo
           </Link>
           <Link href="/workspace" className="btn btn-ghost">Products</Link>
           <Link href="/brand" className="btn btn-ghost">Brand</Link>
+          {passwordOn && <LogoutButton compact className="btn btn-ghost" />}
         </div>
         {children}
       </div>

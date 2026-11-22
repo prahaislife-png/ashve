@@ -12,6 +12,7 @@ import DesignStep from "@/components/steps/DesignStep";
 import SpecsStep from "@/components/steps/SpecsStep";
 import HandoffStep from "@/components/steps/HandoffStep";
 import { PENDING_KEY } from "@/components/CreateBox";
+import LogoutButton from "@/components/LogoutButton";
 
 type Step = "design" | "specs" | "handoff";
 const STEPS: { key: Step; label: string }[] = [
@@ -141,6 +142,11 @@ export default function ProductPage({
               >
                 <Trash2 size={14} /> Delete product
               </button>
+              <div className="my-1 border-t border-line" />
+              <LogoutButton
+                compact
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-ink-2 hover:bg-accent-soft"
+              />
             </div>
           )}
         </div>
