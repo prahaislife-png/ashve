@@ -28,6 +28,8 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Workflow's internal endpoints (.well-known/workflow) must not be blocked, or background jobs stall.
-  matcher: ["/((?!login|api/login|_next/static|_next/image|favicon.ico|\\.well-known/workflow/).*)"],
+  // Not behind the password:
+  // - Workflow's internal endpoints (.well-known/workflow), or background jobs stall
+  // - factory links (/f/<token> and /api/share/<token>/...), which are protected by their secret token
+  matcher: ["/((?!login|api/login|api/share/|f/|_next/static|_next/image|favicon.ico|\\.well-known/workflow/).*)"],
 };

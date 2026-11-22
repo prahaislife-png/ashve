@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Download, PencilLine, RefreshCw, Wand2 } from "lucide-react";
-import { Product, TechPack } from "@/lib/schema";
+import { Product } from "@/lib/schema";
+import SizeChart from "./SizeChart";
 import { fileUrl } from "@/lib/urls";
 import { useAction } from "@/lib/useAction";
 import { COST, Cost, Section, Status, Tabs } from "./Section";
@@ -28,15 +29,6 @@ function Drawing({ src, label, download }: { src: string; label: string; downloa
   );
 }
 
-function measurementsCsv(tp: TechPack) {
-  const esc = (v: string | number | null) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const rows = [
-    ["Code", "Point of measure", "How to measure", "Tolerance ±", ...tp.sizes],
-    ...tp.measurements.map((m) => [m.code, m.name, m.howToMeasure, m.toleranceCm, ...m.values]),
-  ];
-  return rows.map((r) => r.map(esc).join(",")).join("\n");
-}
-
 export default function FlatSketches({ product, onUpdate }: { product: Product; onUpdate: (p: Product) => void }) {
   const tp = product.techPack!;
   const [tab, setTab] = useState<Tab>("flats");
@@ -49,25 +41,6 @@ export default function FlatSketches({ product, onUpdate }: { product: Product; 
   const older = sets.slice(0, -1).reverse();
   const slug = (tp.styleNumber && tp.styleNumber !== "TBC" ? tp.styleNumber : product.name).replace(/[^\w-]+/g, "_");
   const url = (f: string) => fileUrl(product.id, f);
-
-  // Editable size chart
-  const [draft, setDraft] = useState<TechPack["measurements"] | null>(null);
-  const rows = draft ?? tp.measurements;
-  const dirty = useMemo(() => draft && JSON.stringify(draft) !== JSON.stringify(tp.measurements), [draft, tp]);
-
-  function setCell(r: number, c: number | "tol", raw: string) {
-    const v = raw.trim() === "" ? null : Number(raw);
-    if (v !== null && Number.isNaN(v)) return;
-    setDraft(
-      rows.map((m, i) =>
-        i !== r
-          ? m
-          : c === "tol"
-            ? { ...m, toleranceCm: v ?? 0 }
-            : { ...m, values: m.values.map((x, j) => (j === c ? v : x)) },
-      ),
-    );
-  }
 
   const drawLabel = current ? "Redrawing… about 2–4 minutes" : "Drawing front, back and measurement guide… about 2–4 minutes";
 
@@ -170,70 +143,7 @@ export default function FlatSketches({ product, onUpdate }: { product: Product; 
                 <Drawing src={url(current.measurementGuide)} label="Measurement guide" download={`${slug}-measurement-guide.svg`} />
               </div>
             )}
-            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <p className="text-xs text-muted">All measurements in cm. Click a number to correct it.</p>
-              <div className="flex gap-2">
-                {dirty && (
-                  <>
-                    <button className="btn" onClick={() => setDraft(null)}>Discard</button>
-                    <button
-                      className="btn btn-primary"
-                      disabled={!!busy}
-                      onClick={async () => {
-                        if (await run(`/api/products/${product.id}`, "PATCH", { techPack: { ...tp, measurements: rows } }, "Saving…")) setDraft(null);
-                      }}
-                    >
-                      Save edits
-                    </button>
-                  </>
-                )}
-                <button
-                  className="btn"
-                  onClick={() => {
-                    const blob = new Blob([measurementsCsv(tp)], { type: "text/csv" });
-                    const a = document.createElement("a");
-                    a.href = URL.createObjectURL(blob);
-                    a.download = `${slug}-measurements.csv`;
-                    a.click();
-                    URL.revokeObjectURL(a.href);
-                  }}
-                >
-                  <Download size={14} /> CSV
-                </button>
-              </div>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="tp-table" key={product.updatedAt}>
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Point of measure</th>
-                    <th>How to measure</th>
-                    <th className="text-right">Tol ±</th>
-                    {tp.sizes.map((s) => (
-                      <th key={s} className={`text-right ${s === tp.baseSize ? "text-accent" : ""}`}>{s}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((m, r) => (
-                    <tr key={r}>
-                      <td className="code whitespace-nowrap font-medium text-accent">{m.code}</td>
-                      <td>{m.name}</td>
-                      <td className="text-muted">{m.howToMeasure}</td>
-                      <td className="text-right">
-                        <input className="tp-num" inputMode="decimal" defaultValue={m.toleranceCm} aria-label={`${m.name} tolerance`} onBlur={(e) => setCell(r, "tol", e.target.value)} />
-                      </td>
-                      {tp.sizes.map((s, c) => (
-                        <td key={s} className="text-right">
-                          <input className="tp-num" inputMode="decimal" defaultValue={m.values[c] ?? ""} aria-label={`${m.name} size ${s}`} onBlur={(e) => setCell(r, c, e.target.value)} />
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <SizeChart product={product} run={run} busy={busy} slug={slug} />
           </div>
         )}
 

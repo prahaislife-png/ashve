@@ -1,6 +1,6 @@
 import "server-only";
 import { randomUUID } from "crypto";
-import { Brand, emptyBrand, emptyLabels, normalizeTechPack, Product, TechPack } from "./schema";
+import { Brand, emptyBrand, emptyLabels, MeasureMeta, normalizeTechPack, Product, TechPack } from "./schema";
 import { deleteProductImages } from "./files";
 import { storage } from "./storage";
 
@@ -86,12 +86,31 @@ export async function saveProduct(product: Product): Promise<Product> {
   return product;
 }
 
-/** Replace the tech pack, keeping the old one in revision history. */
+/**
+ * Replace the tech pack, keeping the old one in revision history.
+ * Measurement trust: a row whose numbers didn't change keeps its tags (verified,
+ * edited, graded). A row the AI changed goes back to "AI-suggested, not verified",
+ * so she always knows which numbers still need checking.
+ */
 export function applyTechPack(product: Product, techPack: TechPack) {
-  if (product.techPack) {
-    product.revisions.push({ at: new Date().toISOString(), techPack: product.techPack });
+  const old = product.techPack;
+  if (old) {
+    product.revisions.push({ at: new Date().toISOString(), techPack: old });
     product.revisions = product.revisions.slice(-MAX_REVISIONS);
   }
+  const prevMeta = product.measureMeta ?? {};
+  const meta: Record<string, MeasureMeta> = {};
+  for (const m of techPack.measurements) {
+    const before = old?.measurements.find((x) => x.code === m.code);
+    const kept = prevMeta[m.code];
+    const unchanged =
+      before &&
+      JSON.stringify(before.values) === JSON.stringify(m.values) &&
+      before.toleranceCm === m.toleranceCm &&
+      JSON.stringify(old?.sizes) === JSON.stringify(techPack.sizes);
+    meta[m.code] = kept && unchanged ? kept : { source: "ai", verified: false, grade: kept?.grade ?? null };
+  }
+  product.measureMeta = meta;
   product.techPack = techPack;
 }
 

@@ -2,8 +2,22 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Check, CircleAlert, Copy, FileArchive, FileText, Mail, Wand2 } from "lucide-react";
-import { OUTPUTS, OutputKey, Product, ProductStatus, outputStatus } from "@/lib/schema";
+import {
+  Bookmark,
+  Check,
+  CircleAlert,
+  Copy,
+  ExternalLink,
+  FileArchive,
+  FileSpreadsheet,
+  FileText,
+  Link2,
+  Mail,
+  RotateCcw,
+  Trash2,
+  Wand2,
+} from "lucide-react";
+import { metaFor, OUTPUTS, OutputKey, Product, ProductStatus, outputStatus } from "@/lib/schema";
 import { useAction } from "@/lib/useAction";
 import { COST, Cost, Status } from "@/components/specs/Section";
 import TitleBlock from "@/components/TitleBlock";
@@ -19,6 +33,8 @@ export default function HandoffStep({
 }) {
   const { run, busy, error } = useAction(onUpdate);
   const [copied, setCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [versionName, setVersionName] = useState("");
   const tp = product.techPack;
   const status = outputStatus(product);
 
@@ -30,6 +46,12 @@ export default function HandoffStep({
     );
   }
 
+  const verifiedRows = tp.measurements.filter((m) => metaFor(product, m.code).verified).length;
+  const shareUrl = product.share?.token
+    ? `${typeof window !== "undefined" ? window.location.origin : ""}/f/${product.share.token}`
+    : null;
+  const versions = [...(product.versions ?? [])].reverse();
+
   const checks: { label: string; ok: boolean; hint: string; fix?: () => void }[] = [
     ...OUTPUTS.map((o) => ({
       label: o.label,
@@ -37,6 +59,12 @@ export default function HandoffStep({
       hint: status[o.key] ? "Ready" : "Not made yet",
       fix: () => openSpecs(o.key),
     })),
+    {
+      label: "Measurements verified",
+      ok: verifiedRows === tp.measurements.length && tp.measurements.length > 0,
+      hint: `${verifiedRows} of ${tp.measurements.length} rows`,
+      fix: () => openSpecs("flats"),
+    },
     {
       label: "Open decisions",
       ok: tp.openQuestions.length === 0,
@@ -133,18 +161,173 @@ export default function HandoffStep({
               </span>
             </Link>
             <a
-              href={`/api/products/${product.id}/export`}
+              href={`/api/products/${product.id}/excel`}
               className="card flex items-start gap-3 p-4 transition-shadow hover:shadow-elev-lg"
+            >
+              <FileSpreadsheet size={20} className="mt-0.5 text-accent" />
+              <span>
+                <span className="block font-medium text-ink">Excel workbook</span>
+                <span className="mt-0.5 block text-[13px] text-ink-2">
+                  Size chart with grade steps, bill of materials, construction, colours, labels and care.
+                </span>
+              </span>
+            </a>
+            <a
+              href={`/api/products/${product.id}/export`}
+              className="card flex items-start gap-3 p-4 transition-shadow hover:shadow-elev-lg sm:col-span-2"
             >
               <FileArchive size={20} className="mt-0.5 text-accent" />
               <span>
                 <span className="block font-medium text-ink">Factory pack ZIP</span>
                 <span className="mt-0.5 block text-[13px] text-ink-2">
-                  SVG flats, images, prints, labels, size chart and bill of materials.
+                  Everything in one download: Excel, SVG flats, images, prints, labels, size chart and bill of materials.
                 </span>
               </span>
             </a>
           </div>
+
+          {/* Factory link */}
+          <div className="mt-6 rounded-xl bg-card p-4 shadow-elev-sm">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <Link2 size={20} className="mt-0.5 text-accent" />
+                <div>
+                  <div className="font-medium text-ink">Factory link</div>
+                  <p className="mt-0.5 max-w-md text-[13px] text-ink-2">
+                    A private read-only page with the full tech pack, Excel and ZIP. The factory needs no login.
+                    It always shows the latest version. Turn it off any time.
+                  </p>
+                </div>
+              </div>
+              {shareUrl ? (
+                <button
+                  className="btn text-danger"
+                  disabled={!!busy}
+                  onClick={() =>
+                    confirm("Turn off the factory link? Anyone with it will lose access.") &&
+                    run(`/api/products/${product.id}/share`, "DELETE", undefined, "Turning the link off")
+                  }
+                >
+                  Turn off
+                </button>
+              ) : (
+                <button
+                  className="btn btn-primary"
+                  disabled={!!busy}
+                  onClick={() => run(`/api/products/${product.id}/share`, "POST", undefined, "Creating the link")}
+                >
+                  Create link
+                </button>
+              )}
+            </div>
+            {shareUrl && (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <input className="input code flex-1 text-[12.5px]" readOnly value={shareUrl} aria-label="Factory link" onFocus={(e) => e.target.select()} />
+                <button
+                  className="btn"
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(shareUrl);
+                    setLinkCopied(true);
+                    setTimeout(() => setLinkCopied(false), 1500);
+                  }}
+                >
+                  <Copy size={14} /> {linkCopied ? "Copied" : "Copy"}
+                </button>
+                <a className="btn" href={shareUrl} target="_blank" rel="noreferrer">
+                  <ExternalLink size={14} /> Open
+                </a>
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="mt-10" aria-labelledby="versions-title">
+          <h2 id="versions-title" className="h-title text-[22px]">
+            Versions
+          </h2>
+          <p className="mt-1 text-[13.5px] text-ink-2">
+            Save the tech pack as it is now, for example before sending it to a factory. Restoring never deletes anything.
+          </p>
+          <form
+            className="mt-4 flex flex-col gap-2 sm:flex-row"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (await run(`/api/products/${product.id}`, "PATCH", { saveVersion: versionName }, "Saving the version"))
+                setVersionName("");
+            }}
+          >
+            <input
+              className="input"
+              placeholder="Name, e.g. Sent to Factory A for first sample"
+              value={versionName}
+              onChange={(e) => setVersionName(e.target.value)}
+              aria-label="Version name"
+            />
+            <button className="btn btn-primary" disabled={!!busy}>
+              <Bookmark size={14} /> Save version
+            </button>
+          </form>
+          {versions.length > 0 && (
+            <ul className="mt-4 border-t border-line">
+              {versions.map((v) => (
+                <li key={v.id} className="flex flex-wrap items-center gap-3 border-b border-line py-3">
+                  <Bookmark size={15} className="text-accent" />
+                  <span className="flex-1">
+                    <span className="block text-ink">{v.name}</span>
+                    <span className="block text-[12.5px] text-muted">{new Date(v.at).toLocaleString()}</span>
+                  </span>
+                  <button
+                    className="btn h-7 min-h-0 px-2.5 text-[12.5px]"
+                    disabled={!!busy}
+                    onClick={() =>
+                      confirm(`Go back to “${v.name}”? Today's tech pack stays in the history, so nothing is lost.`) &&
+                      run(`/api/products/${product.id}`, "PATCH", { restoreVersion: v.id }, "Restoring the version")
+                    }
+                  >
+                    <RotateCcw size={12} /> Restore
+                  </button>
+                  <button
+                    className="btn btn-ghost h-7 min-h-0 px-2 text-[12.5px] text-danger"
+                    disabled={!!busy}
+                    aria-label={`Delete ${v.name}`}
+                    onClick={() =>
+                      confirm(`Delete the saved version “${v.name}”?`) &&
+                      run(`/api/products/${product.id}`, "PATCH", { deleteVersion: v.id }, "Deleting")
+                    }
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {product.revisions.length > 0 && (
+            <details className="mt-4 text-[13px]">
+              <summary className="cursor-pointer text-ink-2">
+                Automatic history ({product.revisions.length} earlier saves)
+              </summary>
+              <ul className="mt-2 border-t border-line">
+                {product.revisions
+                  .map((r, i) => ({ r, i }))
+                  .reverse()
+                  .map(({ r, i }) => (
+                    <li key={i} className="flex items-center gap-3 border-b border-line py-2">
+                      <span className="num flex-1 text-ink-2">{new Date(r.at).toLocaleString()}</span>
+                      <button
+                        className="btn h-7 min-h-0 px-2.5 text-[12.5px]"
+                        disabled={!!busy}
+                        onClick={() =>
+                          confirm("Restore this earlier tech pack? Today's stays in the history.") &&
+                          run(`/api/products/${product.id}`, "PATCH", { restoreRevision: i }, "Restoring")
+                        }
+                      >
+                        <RotateCcw size={12} /> Restore
+                      </button>
+                    </li>
+                  ))}
+              </ul>
+            </details>
+          )}
         </section>
 
         <section className="mt-10 pb-16" aria-labelledby="email-title">

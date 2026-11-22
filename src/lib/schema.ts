@@ -312,6 +312,12 @@ export type Product = {
   useBrand?: boolean;
   /** Last drafted factory email */
   rfq?: { subject: string; body: string; at: string } | null;
+  /** Trust info per point of measure, keyed by POM code (kept outside the AI's tech pack). */
+  measureMeta?: Record<string, MeasureMeta>;
+  /** Named versions she saved on purpose, e.g. "Sent to Factory A". */
+  versions?: SavedVersion[];
+  /** Read-only link for factories. */
+  share?: { token: string; createdAt: string } | null;
 };
 
 export const FlatFrontBackSchema = z.object({
@@ -327,6 +333,51 @@ export const MeasurementGuideSchema = z.object({
     .string()
     .describe("Complete standalone SVG document: front flat in grey with labelled point-of-measure lines"),
 });
+
+/* ---------- Measurement trust ---------- */
+
+/** Where a size-chart row's numbers came from. */
+export type MeasureSource = "ai" | "edited" | "rule";
+
+export type MeasureMeta = {
+  source: MeasureSource;
+  /** She checked this row against a sample or her own standard. */
+  verified: boolean;
+  /** Grade step in cm between neighbouring sizes; null = not set. */
+  grade: number | null;
+};
+
+export function metaFor(p: Pick<Product, "measureMeta">, code: string): MeasureMeta {
+  return p.measureMeta?.[code] ?? { source: "ai", verified: false, grade: null };
+}
+
+/** Typical step between sizes, read from the current values (median of differences). */
+export function inferGrade(values: (number | null)[]): number | null {
+  const diffs: number[] = [];
+  for (let i = 1; i < values.length; i++) {
+    const a = values[i - 1];
+    const b = values[i];
+    if (a != null && b != null) diffs.push(Math.round((b - a) * 10) / 10);
+  }
+  if (!diffs.length) return null;
+  diffs.sort((x, y) => x - y);
+  return diffs[Math.floor(diffs.length / 2)];
+}
+
+/** Grade a row from its sample-size value: base + step × (size index − sample index). */
+export function gradeRow(values: (number | null)[], baseIndex: number, step: number): (number | null)[] {
+  const base = values[baseIndex];
+  if (base == null) return values;
+  return values.map((_, i) => Math.round((base + step * (i - baseIndex)) * 10) / 10);
+}
+
+export type SavedVersion = {
+  id: string;
+  name: string;
+  at: string;
+  techPack: TechPack;
+  measureMeta: Record<string, MeasureMeta>;
+};
 
 /* ---------- Background jobs ---------- */
 
