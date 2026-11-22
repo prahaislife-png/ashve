@@ -56,6 +56,15 @@ export default function ProductPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  // Lets the usage monitor move out of the way of the chat drawer.
+  useEffect(() => {
+    const open = chatOpen && step !== "design";
+    document.body.dataset.drawer = open ? "open" : "closed";
+    return () => {
+      document.body.dataset.drawer = "closed";
+    };
+  }, [chatOpen, step]);
+
   function setStep(s: Step) {
     setStepState(s);
     router.replace(`/products/${id}?step=${s}`, { scroll: false });

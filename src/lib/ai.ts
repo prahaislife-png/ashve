@@ -17,6 +17,7 @@ import {
   TechPack,
 } from "./schema";
 import { readImage } from "./files";
+import { claudeCost, recordUsage } from "./usage";
 
 const MODEL = "claude-opus-5-5";
 
@@ -111,6 +112,15 @@ export async function runTechPackTurn(opts: {
   return { reply: turn.reply, techPack: fromWire(turn.techPack) };
 }
 
+/** Names shown in the usage monitor. */
+const KIND_LABEL: Record<string, string> = {
+  "tech pack": "Tech pack chat",
+  "set of drawings": "Flat sketches",
+  "technical sketch": "Technical sketch",
+  "detail list": "Detail finder",
+  email: "Factory email",
+};
+
 /** One streamed Claude call that must return JSON matching `schema`. */
 async function structuredCall<S extends z.ZodType>(
   schema: S,
@@ -153,9 +163,12 @@ async function structuredCall<S extends z.ZodType>(
     throw error;
   }
 
+  // Record the cost before anything else: it was spent even if the answer turns out unusable.
+  const { cost, tokens } = claudeCost(final.model, final.usage);
+  await recordUsage({ provider: "claude", model: final.model, kind: KIND_LABEL[opts.what] ?? opts.what, costUsd: cost, tokens });
   console.log(
     `[claude] ${opts.what}: ${Math.round((Date.now() - started) / 1000)}s, ` +
-      `in ${final.usage.input_tokens} (+${final.usage.cache_read_input_tokens ?? 0} cached), out ${final.usage.output_tokens}`,
+      `in ${final.usage.input_tokens} (+${final.usage.cache_read_input_tokens ?? 0} cached), out ${final.usage.output_tokens}, $${cost.toFixed(4)}`,
   );
 
   if (final.stop_reason === "refusal") {

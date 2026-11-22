@@ -1,5 +1,6 @@
 import "server-only";
 import { Brand, MockupView, TechPack } from "./schema";
+import { OpenAIImageUsage, openaiImageCost, recordUsage } from "./usage";
 
 // OpenAI image model. Key from https://platform.openai.com/api-keys
 // Override in .env.local with OPENAI_IMAGE_MODEL / OPENAI_IMAGE_QUALITY (low | medium | high).
@@ -128,6 +129,8 @@ export async function generateImage(
   prompt: string,
   images: InlineImage[],
   size: "1024x1536" | "1024x1024" | "1536x1024" = PORTRAIT,
+  /** Shown in the usage monitor, e.g. "Product views" */
+  purpose = "Image",
 ): Promise<InlineImage> {
   const SIZE = size;
   const key = process.env.OPENAI_API_KEY;
@@ -176,7 +179,13 @@ export async function generateImage(
   const body = (await res.json().catch(() => null)) as {
     error?: { message?: string; code?: string | null; type?: string };
     data?: { b64_json?: string }[];
+    usage?: OpenAIImageUsage;
   } | null;
+
+  if (res.ok) {
+    const { cost, tokens } = openaiImageCost(body?.usage);
+    await recordUsage({ provider: "openai", model: MODEL, kind: purpose, costUsd: cost, tokens });
+  }
 
   if (!res.ok) {
     const msg = body?.error?.message ?? `HTTP ${res.status}`;

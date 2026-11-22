@@ -34,6 +34,7 @@ export async function POST(_req: Request, { params }: P) {
       buildCloseupPrompt(pin.title, pin.note),
       [{ mime: src.mime, data: src.buffer }],
       "1024x1024",
+      "Close-up",
     );
     if (pin.closeup) await deleteImage(id, pin.closeup);
     pin.closeup = await saveImage(id, "mockup", img.mime, img.data);

@@ -17,7 +17,12 @@ export async function POST(req: Request, { params }: P) {
     const mockup = need(product.mockups?.find((m) => m.id === mockupId), "Image not found", 404);
     need(text || null, "Say what to change.");
     const source = need(await readImage(id, mockup.file), "Original image is missing.", 404);
-    const image = await generateImage(buildEditPrompt(text), [{ mime: source.mime, data: source.buffer }]);
+    const image = await generateImage(
+      buildEditPrompt(text),
+      [{ mime: source.mime, data: source.buffer }],
+      undefined,
+      "Mockup edit",
+    );
     const file = await saveImage(id, "mockup", image.mime, image.data);
     product.mockups = [
       ...(product.mockups ?? []),

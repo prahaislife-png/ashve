@@ -205,6 +205,13 @@ body {
   }
 }
 
+/* When the chat drawer is open on the right, move the usage monitor to the left corner. */
+body[data-drawer="open"] .usage-widget {
+  right: auto;
+  left: 1rem;
+  align-items: flex-start;
+}
+
 @media print {
   @page {
     size: A4;

@@ -4,6 +4,7 @@ import { getProduct, saveProduct } from "./store";
 import { AiError } from "./ai";
 import { ImageGenError } from "./imagegen";
 import { Product } from "./schema";
+import { withUsageContext } from "./usage";
 
 export type Ctx<P = { id: string }> = { params: Promise<P> };
 
@@ -92,7 +93,8 @@ export async function mutateProduct(
     const product = await getProduct(id);
     if (!product) return NextResponse.json({ error: "Not found" }, { status: 404 });
     const before = structuredClone(product);
-    await fn(product);
+    // Tag every AI call made inside `fn` with this product for the usage monitor.
+    await withUsageContext(product.id, product.name, () => fn(product));
     const saved = await withLock(id, async () => {
       const latest = (await getProduct(id)) ?? before;
       return saveProduct(mergeChanges(before, product, latest));

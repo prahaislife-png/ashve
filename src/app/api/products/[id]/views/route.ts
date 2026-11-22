@@ -58,7 +58,7 @@ export async function POST(req: Request, { params }: Ctx) {
         note,
         hasReferences: refs.length > 0,
       });
-      const img = await generateImage(prompt, refs);
+      const img = await generateImage(prompt, refs, undefined, "Product views");
       front = add("product-front", await saveImage(id, "mockup", img.mime, img.data));
     }
 
@@ -67,9 +67,12 @@ export async function POST(req: Request, { params }: Ctx) {
     // Side and back in parallel, both from the front image.
     const made = await Promise.all(
       others.map(async (v) => {
-        const img = await generateImage(buildViewFromFrontPrompt(v, tp), [
-          { mime: frontImg.mime, data: frontImg.buffer },
-        ]);
+        const img = await generateImage(
+          buildViewFromFrontPrompt(v, tp),
+          [{ mime: frontImg.mime, data: frontImg.buffer }],
+          undefined,
+          "Product views",
+        );
         return { v, file: await saveImage(id, "mockup", img.mime, img.data) };
       }),
     );

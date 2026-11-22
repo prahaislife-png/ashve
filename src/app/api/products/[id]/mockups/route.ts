@@ -38,7 +38,7 @@ export async function POST(req: Request, { params }: Ctx) {
       note,
       hasReferences: refs.length > 0,
     });
-    const image = await generateImage(prompt, refs);
+    const image = await generateImage(prompt, refs, undefined, "Mockup");
     const file = await saveImage(id, "mockup", image.mime, image.data);
     product.mockups = [
       ...(product.mockups ?? []),

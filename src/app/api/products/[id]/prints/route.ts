@@ -43,6 +43,7 @@ export async function POST(req: Request, { params }: Ctx) {
         buildPrintPrompt({ kind, description, colors, aesthetic: brand.aesthetic }),
         [],
         "1024x1024",
+        "Print file",
       );
       file = await saveImage(id, "mockup", img.mime, img.data);
       source = "ai";

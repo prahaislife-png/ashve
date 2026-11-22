@@ -45,6 +45,7 @@ export async function POST(req: Request, { params }: Ctx) {
         }),
         [],
         "1536x1024",
+        slot === "product" ? "Product label" : "Hang tag",
       );
       file = await saveImage(id, "mockup", img.mime, img.data);
       current.source = "ai";
