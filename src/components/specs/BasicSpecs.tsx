@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Product } from "@/lib/schema";
 import { useAction } from "@/lib/useAction";
 import ProductViews from "@/components/ProductViews";
 import { Field, Section, Status, Swatch, Tabs } from "./Section";
+import DecisionsPanel from "./DecisionsPanel";
 
 type Tab = "info" | "colours" | "materials" | "construction";
 
@@ -12,6 +13,17 @@ export default function BasicSpecs({ product, onUpdate }: { product: Product; on
   const tp = product.techPack!;
   const [tab, setTab] = useState<Tab>("info");
   const { run, busy, error, job } = useAction(onUpdate);
+  const tabsRef = useRef<HTMLDivElement>(null);
+
+  /** Jump to a part of the tech pack that an answer changed. */
+  function show(key: string) {
+    if (key === "info" || key === "colours" || key === "materials" || key === "construction") {
+      setTab(key);
+      tabsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else {
+      document.getElementById(key === "sizechart" ? "flats" : "labels")?.scrollIntoView({ behavior: "smooth" });
+    }
+  }
 
   return (
     <Section
@@ -22,22 +34,9 @@ export default function BasicSpecs({ product, onUpdate }: { product: Product; on
       <ProductViews product={product} run={run} busy={busy} compact />
       <Status busy={busy} error={error} job={job} />
 
-      {tp.openQuestions.length > 0 && (
-        <div className="mt-6 rounded-lg border-l-[3px] border-warn bg-warn-soft px-4 py-3 text-[13.5px] text-warn-ink">
-          <p className="font-medium">
-            {tp.openQuestions.length} {tp.openQuestions.length === 1 ? "decision" : "decisions"} before this goes to a
-            factory
-          </p>
-          <ul className="mt-1.5 list-disc space-y-0.5 pl-5">
-            {tp.openQuestions.map((q, i) => (
-              <li key={i}>{q}</li>
-            ))}
-          </ul>
-          <p className="mt-2 text-[12.5px]">Answer them in the assistant and the tech pack updates.</p>
-        </div>
-      )}
+      <DecisionsPanel product={product} onUpdate={onUpdate} onShow={show} />
 
-      <div className="mt-7">
+      <div className="mt-7 scroll-mt-24" ref={tabsRef}>
         <Tabs
           value={tab}
           onChange={setTab}

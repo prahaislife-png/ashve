@@ -5,6 +5,7 @@ import { z } from "zod/v4";
 import {
   AssistantTurn,
   AssistantTurnWireSchema,
+  DecisionCardsSchema,
   fromWire,
   Brand,
   ChatMessage,
@@ -124,6 +125,7 @@ const KIND_LABEL: Record<string, string> = {
   "technical sketch": "Technical sketch",
   "detail list": "Detail finder",
   email: "Factory email",
+  "decision options": "Decision options",
 };
 
 /** One streamed Claude call that must return JSON matching `schema`. */
@@ -370,6 +372,37 @@ export async function writeRfq(opts: { techPack: TechPack; brand: Brand }) {
       },
     ],
     what: "email",
+    effort: "low",
+  });
+}
+
+/* ---------- Open decisions: one-click answer options ---------- */
+
+const DECISION_INSTRUCTIONS = `You help a women's loungewear designer settle the open decisions in her tech pack quickly, without leaving the page.
+
+For every open decision you are given, write one card:
+- title: the decision as a short, plain question.
+- context: one sentence that quotes what the tech pack says now (numbers with units) and why it matters for the sample.
+- options: 2 to 4 concrete answers she can pick with one click. Each is specific and ready to apply: numbers with units, named finishes, stitch types, quantities. Put the answer you recommend for this product first. Base options on the tech pack, the product type and good loungewear practice.
+- Do NOT offer "ask the factory", "decide later" or "other" as options; the app adds those itself.
+- factoryCanAnswer: true for things a factory or supplier normally settles (quotes, MOQ, lab dips, fabric availability, test results).
+- Never invent supplier names, certifications or prices. For price questions, offer target ranges as options only if the tech pack or brand gives a basis; otherwise offer quantity or approach choices.
+Return exactly one card per decision, with its index.`;
+
+export async function prepareDecisions(opts: { techPack: TechPack; questions: string[] }) {
+  return structuredCall(DecisionCardsSchema, {
+    system: [{ type: "text", text: DECISION_INSTRUCTIONS }],
+    messages: [
+      {
+        role: "user",
+        content: `TECH PACK (JSON):
+${JSON.stringify(opts.techPack)}
+
+OPEN DECISIONS:
+${opts.questions.map((q, i) => `${i}. ${q}`).join("\n")}`,
+      },
+    ],
+    what: "decision options",
     effort: "low",
   });
 }

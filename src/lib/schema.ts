@@ -318,7 +318,73 @@ export type Product = {
   versions?: SavedVersion[];
   /** Read-only link for factories. */
   share?: { token: string; createdAt: string } | null;
+  /** One-click answer options for each open decision, keyed by the question text. */
+  decisionCards?: Record<string, DecisionCard>;
+  /** Decisions she has already made, newest last. */
+  decisionLog?: DecisionLogEntry[];
 };
+
+/* ---------- Decisions (open questions answered in place) ---------- */
+
+export type DecisionCard = {
+  title: string;
+  context: string;
+  area: string;
+  options: { label: string; detail: string }[];
+  factoryCanAnswer: boolean;
+};
+
+export type DecisionMode = "answer" | "factory";
+
+export type DecisionLogEntry = {
+  id: string;
+  at: string;
+  question: string;
+  title: string;
+  answer: string;
+  mode: DecisionMode;
+};
+
+export const DecisionCardsSchema = z.object({
+  cards: z.array(
+    z.object({
+      index: z.number().describe("0-based index of the decision in the list you were given"),
+      title: z.string().describe("The decision as a short plain question, at most 10 words, ending with ?"),
+      context: z
+        .string()
+        .describe("One sentence: what the tech pack says now (quote the numbers) and why it matters"),
+      area: z
+        .string()
+        .describe("Exactly one of: Size chart, Materials, Construction, Trims, Colours, Costing, Labels, Product information"),
+      options: z
+        .array(z.object({ label: z.string().describe("The answer, 2 to 8 words"), detail: z.string().describe("What the tech pack will say, one short line") }))
+        .describe("2 to 4 concrete answers; the first is the one you recommend"),
+      factoryCanAnswer: z
+        .boolean()
+        .describe("True when a factory or supplier normally settles this (quotes, lab dips, availability, test results)"),
+    }),
+  ),
+});
+
+/** Which parts of the tech pack changed, and whether the photos or flats are now out of date. */
+export function diffTechPack(a: TechPack, b: TechPack) {
+  const same = (...keys: (keyof TechPack)[]) => keys.every((k) => JSON.stringify(a[k]) === JSON.stringify(b[k]));
+  const sections: { key: string; label: string }[] = [];
+  if (!same("styleName", "styleNumber", "productType", "description", "fit", "intendedUse", "targetMarket", "season", "estimatedWeightG"))
+    sections.push({ key: "info", label: "Product information" });
+  if (!same("colorways", "accentColors", "pattern")) sections.push({ key: "colours", label: "Colours" });
+  if (!same("fabrics")) sections.push({ key: "materials", label: "Materials" });
+  if (!same("construction", "trims")) sections.push({ key: "construction", label: "Construction and trims" });
+  if (!same("measurements", "sizes", "baseSize")) sections.push({ key: "sizechart", label: "Size chart" });
+  if (!same("labelsPackaging", "careInstructions")) sections.push({ key: "labels", label: "Labels and care" });
+  if (!same("costing")) sections.push({ key: "info", label: "Costing" });
+  const looks = ["productType", "description", "fit", "pattern", "colorways", "accentColors", "fabrics", "trims", "construction"] as const;
+  return {
+    sections,
+    views: !same(...looks),
+    flats: !same("productType", "description", "fit", "trims", "construction", "measurements"),
+  };
+}
 
 export const FlatFrontBackSchema = z.object({
   front: z.string().describe("Complete standalone SVG document: front technical flat"),
