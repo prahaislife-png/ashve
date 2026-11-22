@@ -1,9 +1,7 @@
 import "server-only";
-import { promises as fs } from "fs";
-import path from "path";
 import { randomUUID } from "crypto";
+import { storage } from "./storage";
 
-const UPLOADS_DIR = path.join(process.cwd(), "data", "uploads");
 const MAX_BYTES = 8 * 1024 * 1024;
 
 const EXT_BY_MIME: Record<string, string> = {
@@ -20,12 +18,12 @@ export type ImageMime = "image/jpeg" | "image/png" | "image/webp" | "image/svg+x
 
 function productDir(productId: string) {
   if (!/^[a-f0-9-]{36}$/.test(productId)) throw new Error("Invalid product id");
-  return path.join(UPLOADS_DIR, productId);
+  return `uploads/${productId}/`;
 }
 
 function filePath(productId: string, name: string) {
   if (!/^[a-z]+-[a-f0-9-]{36}\.(jpg|png|webp|svg)$/.test(name)) throw new Error("Invalid file name");
-  return path.join(productDir(productId), name);
+  return `${productDir(productId)}${name}`;
 }
 
 /** Parse a `data:image/...;base64,...` URL sent from the browser. */
@@ -46,8 +44,7 @@ export async function saveImage(
   const ext = EXT_BY_MIME[mime];
   if (!ext) throw new Error(`Unsupported image type ${mime}`);
   const name = `${kind}-${randomUUID()}.${ext}`;
-  await fs.mkdir(productDir(productId), { recursive: true });
-  await fs.writeFile(filePath(productId, name), buffer);
+  await storage.write(filePath(productId, name), buffer, mime);
   return name;
 }
 
@@ -80,19 +77,22 @@ export async function readImage(
   productId: string,
   name: string,
 ): Promise<{ buffer: Buffer; mime: ImageMime } | null> {
+  let key: string;
   try {
-    const buffer = await fs.readFile(filePath(productId, name));
-    const ext = name.split(".").pop()!;
-    return { buffer, mime: MIME_BY_EXT[ext] as ImageMime };
+    key = filePath(productId, name);
   } catch {
     return null;
   }
+  const buffer = await storage.read(key);
+  if (!buffer) return null;
+  const ext = name.split(".").pop()!;
+  return { buffer, mime: MIME_BY_EXT[ext] as ImageMime };
 }
 
 export async function deleteImage(productId: string, name: string) {
-  await fs.rm(filePath(productId, name), { force: true });
+  await storage.remove(filePath(productId, name));
 }
 
 export async function deleteProductImages(productId: string) {
-  await fs.rm(productDir(productId), { recursive: true, force: true });
+  await storage.removePrefix(productDir(productId));
 }

@@ -40,7 +40,7 @@ export default function PrintFiles({ product, onUpdate }: { product: Product; on
         <div className="mt-3 text-xs text-muted">What should we generate?</div>
         <div className="mt-1.5 flex flex-wrap gap-2">
           <button className={`chip ${kind === "repeat" ? "border-accent bg-accent-soft" : ""}`} onClick={() => setKind("repeat")}>
-            <Repeat size={13} /> Repeat · seamless tile
+            <Repeat size={13} /> Repeat Â· seamless tile
           </button>
           <button className={`chip ${kind === "placement" ? "border-accent bg-accent-soft" : ""}`} onClick={() => setKind("placement")}>
             <Shapes size={13} /> Placement graphic
@@ -63,7 +63,7 @@ export default function PrintFiles({ product, onUpdate }: { product: Product; on
             className="btn btn-primary"
             disabled={!!busy || !description.trim()}
             onClick={async () => {
-              if (await run(base, "POST", { mode: "ai", description, ...meta }, "Creating print artwork… about 30–60 seconds")) {
+              if (await run(base, "POST", { mode: "ai", description, ...meta }, "Creating print artworkâ€¦ about 30â€“60 seconds")) {
                 setDescription("");
                 setName("");
               }
@@ -83,8 +83,8 @@ export default function PrintFiles({ product, onUpdate }: { product: Product; on
               const f = e.target.files?.[0];
               e.target.value = "";
               if (!f) return;
-              if (f.size > 8 * 1024 * 1024) return setError("That file is over 8 MB.");
-              run(base, "POST", { mode: "upload", dataUrl: await readAsDataUrl(f), ...meta }, "Uploading…");
+              if (f.size > 3 * 1024 * 1024) return setError("That file is over 3 MB. Save it smaller (e.g. 2000 px PNG) and try again.");
+              run(base, "POST", { mode: "upload", dataUrl: await readAsDataUrl(f), ...meta }, "Uploadingâ€¦");
             }}
           />
         </div>
@@ -110,21 +110,21 @@ export default function PrintFiles({ product, onUpdate }: { product: Product; on
                   className="input py-1 text-sm font-medium"
                   defaultValue={p.name}
                   aria-label="Print name"
-                  onBlur={(e) => e.target.value !== p.name && run(`${base}/${p.id}`, "PATCH", { name: e.target.value }, "Saving…")}
+                  onBlur={(e) => e.target.value !== p.name && run(`${base}/${p.id}`, "PATCH", { name: e.target.value }, "Savingâ€¦")}
                 />
                 <div className="text-muted">
-                  {p.kind === "repeat" ? "Seamless repeat" : "Placement"} · {p.source === "ai" ? "AI" : "Uploaded"}
+                  {p.kind === "repeat" ? "Seamless repeat" : "Placement"} Â· {p.source === "ai" ? "AI" : "Uploaded"}
                 </div>
                 <input
                   className="input py-1 text-xs"
                   defaultValue={p.placement}
                   aria-label="Placement"
-                  onBlur={(e) => e.target.value !== p.placement && run(`${base}/${p.id}`, "PATCH", { placement: e.target.value }, "Saving…")}
+                  onBlur={(e) => e.target.value !== p.placement && run(`${base}/${p.id}`, "PATCH", { placement: e.target.value }, "Savingâ€¦")}
                 />
                 <div className="flex items-center gap-1">
-                  <input className="input w-16 py-1 text-xs" defaultValue={p.widthCm ?? ""} placeholder="W" aria-label="Width cm" onBlur={(e) => run(`${base}/${p.id}`, "PATCH", { widthCm: e.target.value }, "Saving…")} />
-                  ×
-                  <input className="input w-16 py-1 text-xs" defaultValue={p.heightCm ?? ""} placeholder="H" aria-label="Height cm" onBlur={(e) => run(`${base}/${p.id}`, "PATCH", { heightCm: e.target.value }, "Saving…")} />
+                  <input className="input w-16 py-1 text-xs" defaultValue={p.widthCm ?? ""} placeholder="W" aria-label="Width cm" onBlur={(e) => run(`${base}/${p.id}`, "PATCH", { widthCm: e.target.value }, "Savingâ€¦")} />
+                  Ã—
+                  <input className="input w-16 py-1 text-xs" defaultValue={p.heightCm ?? ""} placeholder="H" aria-label="Height cm" onBlur={(e) => run(`${base}/${p.id}`, "PATCH", { heightCm: e.target.value }, "Savingâ€¦")} />
                   cm
                   <div className="flex-1" />
                   <button className="btn btn-ghost px-2 text-danger" aria-label="Delete print" disabled={!!busy} onClick={() => confirm("Delete this print?") && run(`${base}/${p.id}`, "DELETE")}>

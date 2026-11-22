@@ -43,3 +43,5 @@ next-env.d.ts
 # local data (products, brand)
 /data/
 !.env.example
+.vercel
+.env*.local

@@ -1,40 +1,26 @@
 import "server-only";
-import { promises as fs } from "fs";
-import path from "path";
 import { randomUUID } from "crypto";
 import { Brand, emptyBrand, emptyLabels, normalizeTechPack, Product, TechPack } from "./schema";
 import { deleteProductImages } from "./files";
+import { storage } from "./storage";
 
-// Everything is saved as plain JSON files in ./data so nothing needs an account.
-// (Swap this file for Supabase later when the app goes online.)
-const DATA_DIR = path.join(process.cwd(), "data");
-const PRODUCTS_DIR = path.join(DATA_DIR, "products");
-const BRAND_FILE = path.join(DATA_DIR, "brand.json");
+// Products and brand settings are JSON documents in `storage`
+// (./data on your computer, a private Vercel Blob store online).
+const BRAND_FILE = "brand.json";
 const MAX_REVISIONS = 30;
 
-async function ensureDirs() {
-  await fs.mkdir(PRODUCTS_DIR, { recursive: true });
+async function readJson<T>(key: string): Promise<T | null> {
+  const buf = await storage.read(key);
+  return buf ? (JSON.parse(buf.toString("utf8")) as T) : null;
 }
 
-async function readJson<T>(file: string): Promise<T | null> {
-  try {
-    return JSON.parse(await fs.readFile(file, "utf8")) as T;
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
-    throw err;
-  }
-}
-
-async function writeJson(file: string, value: unknown) {
-  await ensureDirs();
-  const tmp = `${file}.tmp`;
-  await fs.writeFile(tmp, JSON.stringify(value, null, 2), "utf8");
-  await fs.rename(tmp, file);
+async function writeJson(key: string, value: unknown) {
+  await storage.write(key, Buffer.from(JSON.stringify(value, null, 2), "utf8"), "application/json");
 }
 
 function productFile(id: string) {
   if (!/^[a-f0-9-]{36}$/.test(id)) throw new Error("Invalid product id");
-  return path.join(PRODUCTS_DIR, `${id}.json`);
+  return `products/${id}.json`;
 }
 
 /* ---------- Brand ---------- */
@@ -51,11 +37,8 @@ export async function saveBrand(brand: Brand) {
 /* ---------- Products ---------- */
 
 export async function listProducts(): Promise<Product[]> {
-  await ensureDirs();
-  const files = (await fs.readdir(PRODUCTS_DIR)).filter((f) => f.endsWith(".json"));
-  const items = await Promise.all(
-    files.map((f) => readJson<Product>(path.join(PRODUCTS_DIR, f))),
-  );
+  const keys = (await storage.list("products/")).filter((k) => k.endsWith(".json"));
+  const items = await Promise.all(keys.map((k) => readJson<Product>(k)));
   return items
     .filter((p): p is Product => p !== null)
     .map((p) => ({ ...p, techPack: normalizeTechPack(p.techPack) }))
@@ -113,6 +96,6 @@ export function applyTechPack(product: Product, techPack: TechPack) {
 }
 
 export async function deleteProduct(id: string) {
-  await fs.rm(productFile(id), { force: true });
+  await storage.remove(productFile(id));
   await deleteProductImages(id);
 }

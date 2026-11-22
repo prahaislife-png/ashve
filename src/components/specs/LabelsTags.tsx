@@ -36,12 +36,12 @@ export default function LabelsTags({ product, onUpdate }: { product: Product; on
             value={labels[slot]}
             positions={POSITIONS[slot]}
             busy={!!busy}
-            onGenerate={(notes) => run(base, "POST", { slot, mode: "ai", notes }, "Designing label artwork… about 30–60 seconds")}
+            onGenerate={(notes) => run(base, "POST", { slot, mode: "ai", notes }, "Designing label artworkâ€¦ about 30â€“60 seconds")}
             onUpload={async (f) => {
-              if (f.size > 8 * 1024 * 1024) return setError("That file is over 8 MB.");
-              run(base, "POST", { slot, mode: "upload", dataUrl: await readAsDataUrl(f) }, "Uploading…");
+              if (f.size > 3 * 1024 * 1024) return setError("That file is over 3 MB. Save it smaller (e.g. 2000 px PNG) and try again.");
+              run(base, "POST", { slot, mode: "upload", dataUrl: await readAsDataUrl(f) }, "Uploadingâ€¦");
             }}
-            onPatch={(body) => run(base, "PATCH", { slot, ...body }, "Saving…")}
+            onPatch={(body) => run(base, "PATCH", { slot, ...body }, "Savingâ€¦")}
           />
         ))}
       </div>
@@ -154,7 +154,7 @@ function Slot({
           <input
             ref={notesRef}
             className="input mt-0.5"
-            placeholder="e.g. 2 cm × 4 cm, cream ground, gold thread"
+            placeholder="e.g. 2 cm Ã— 4 cm, cream ground, gold thread"
             defaultValue={value.notes}
             onBlur={(e) => e.target.value !== value.notes && onPatch({ notes: e.target.value })}
           />
