@@ -82,7 +82,8 @@ function installFetchHook() {
 export default function UsageWidget() {
   const path = usePathname();
   // Hidden on login, the printable PDF, and factory links (factories don't see her usage).
-  const hidden = path === "/login" || /\/print$/.test(path) || path.startsWith("/f/");
+  const hidden =
+    path === "/login" || /\/(print|linesheet)$/.test(path) || /\/fit\/[^/]+$/.test(path) || path.startsWith("/f/");
   const [data, setData] = useState<Summary | null>(null);
   const [running, setRunning] = useState<Job[]>([]);
   const [toasts, setToasts] = useState<Toast[]>([]);

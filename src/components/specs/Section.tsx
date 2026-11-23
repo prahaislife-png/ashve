@@ -92,6 +92,9 @@ export const COST = {
   print: 0.05,
   label: 0.07,
   email: 0.02,
+  translate: 0.35,
+  revise: 0.25,
+  plan: 0.06,
 };
 
 function useElapsed(active: boolean) {

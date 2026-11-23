@@ -37,7 +37,7 @@ export function parseDataUrl(dataUrl: string): { mime: ImageMime; buffer: Buffer
 
 export async function saveImage(
   productId: string,
-  kind: "ref" | "mockup" | "flat",
+  kind: "ref" | "mockup" | "flat" | "sample" | "mood",
   mime: string,
   buffer: Buffer,
 ): Promise<string> {

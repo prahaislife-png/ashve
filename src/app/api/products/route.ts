@@ -4,12 +4,13 @@ import { createProduct, listProducts } from "@/lib/store";
 export async function GET() {
   const products = await listProducts();
   return NextResponse.json(
-    products.map(({ id, name, status, updatedAt, techPack }) => ({
+    products.map(({ id, name, status, updatedAt, techPack, collectionId }) => ({
       id,
       name,
       status,
       updatedAt,
       category: techPack?.category ?? null,
+      collectionId: collectionId ?? null,
     })),
   );
 }

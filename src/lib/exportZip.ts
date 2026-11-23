@@ -3,15 +3,17 @@ import JSZip from "jszip";
 import { readImage } from "./files";
 import { buildWorkbook, packSlug } from "./excel";
 import { Brand, metaFor, MOCKUP_VIEWS, Product, TechPack } from "./schema";
+import { measure, Units } from "./locale";
 
-function sizeChartCsv(product: Product, tp: TechPack) {
+function sizeChartCsv(product: Product, tp: TechPack, units: Units) {
   const esc = (v: string | number | null) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const f = (v: number | null) => (v == null ? "" : measure(v, units, true));
   const rows = [
-    ["Code", "Point of measure", "How to measure", "Tolerance ±", "Grade", ...tp.sizes, "Source", "Verified"],
+    ["Code", "Point of measure", "How to measure", `Tolerance ± (${units})`, `Grade (${units})`, ...tp.sizes, "Source", "Verified"],
     ...tp.measurements.map((m) => {
       const mm = metaFor(product, m.code);
       const src = mm.source === "ai" ? "AI-suggested" : mm.source === "rule" ? "Graded" : "Edited";
-      return [m.code, m.name, m.howToMeasure, m.toleranceCm, mm.grade, ...m.values, src, mm.verified ? "Yes" : "No"];
+      return [m.code, m.name, m.howToMeasure, f(m.toleranceCm), f(mm.grade), ...m.values.map(f), src, mm.verified ? "Yes" : "No"];
     }),
   ];
   return rows.map((r) => r.map(esc).join(",")).join("\r\n");
@@ -26,11 +28,20 @@ function bomCsv(tp: TechPack) {
 }
 
 /** Every file a factory needs, in one ZIP. */
-export async function buildFactoryZip(product: Product, brand: Brand): Promise<{ bytes: Uint8Array; filename: string }> {
-  const tp = product.techPack!;
+export async function buildFactoryZip(
+  product: Product,
+  brand: Brand,
+  units: Units = "cm",
+): Promise<{ bytes: Uint8Array; filename: string }> {
   const slug = packSlug(product);
   const zip = new JSZip();
-  const root = zip.folder(slug)!;
+  await addFactoryPack(zip.folder(slug)!, product, brand, units);
+  return { bytes: await zip.generateAsync({ type: "uint8array", compression: "DEFLATE" }), filename: `${slug}-factory-pack.zip` };
+}
+
+/** Write one product's factory pack into a ZIP folder (also used for whole collections). */
+export async function addFactoryPack(root: JSZip, product: Product, brand: Brand, units: Units) {
+  const tp = product.techPack!;
   root.file(
     "README.txt",
     [
@@ -38,7 +49,7 @@ export async function buildFactoryZip(product: Product, brand: Brand): Promise<{
       "",
       "Contents:",
       "- tech-pack.xlsx: size chart, bill of materials, construction, colours, labels and care",
-      "- measurements.csv: size chart (cm) with tolerances, grade steps and verification status",
+      `- measurements.csv: size chart (${units === "in" ? "inches" : "cm"}) with tolerances, grade steps and verification status`,
       "- bill-of-materials.csv: fabrics and trims",
       "- tech-pack.json: full specification data",
       "- flats/: front, back, measurement guide and technical sketch (SVG)",
@@ -46,8 +57,8 @@ export async function buildFactoryZip(product: Product, brand: Brand): Promise<{
       "- details/, prints/, labels/: detail close-ups, print files and label artwork",
     ].join("\r\n"),
   );
-  root.file("tech-pack.xlsx", await buildWorkbook(product, brand));
-  root.file("measurements.csv", sizeChartCsv(product, tp));
+  root.file("tech-pack.xlsx", await buildWorkbook(product, brand, units));
+  root.file("measurements.csv", sizeChartCsv(product, tp, units));
   root.file("bill-of-materials.csv", bomCsv(tp));
   root.file("tech-pack.json", JSON.stringify(tp, null, 2));
 
@@ -72,6 +83,8 @@ export async function buildFactoryZip(product: Product, brand: Brand): Promise<{
   for (const pr of product.prints ?? []) await add("prints", pr.name.replace(/[^\w]+/g, "-"), pr.file);
   await add("labels", "product-label", product.labels?.product.file);
   await add("labels", "hang-tag", product.labels?.hangTag.file);
-
-  return { bytes: await zip.generateAsync({ type: "uint8array", compression: "DEFLATE" }), filename: `${slug}-factory-pack.zip` };
+  for (const r of product.samples ?? []) {
+    let k = 0;
+    for (const ph of r.photos) await add(`samples/round-${r.n}`, `${String(++k).padStart(2, "0")}`, ph.file);
+  }
 }

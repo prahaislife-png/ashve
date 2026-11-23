@@ -31,12 +31,19 @@ const STARTERS: { icon: React.ReactNode; label: string; prompt: string }[] = [
 
 export const PENDING_KEY = (id: string) => `pending-brief:${id}`;
 
-export default function CreateBox({ hasBrand }: { hasBrand: boolean }) {
+export default function CreateBox({
+  hasBrand,
+  collections = [],
+}: {
+  hasBrand: boolean;
+  collections?: { id: string; name: string }[];
+}) {
   const router = useRouter();
   const [text, setText] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
   const [useBrand, setUseBrand] = useState(hasBrand);
   const [busy, setBusy] = useState(false);
+  const [collectionId, setCollectionId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -64,6 +71,13 @@ export default function CreateBox({ hasBrand }: { hasBrand: boolean }) {
       });
       const product = await res.json();
       if (!res.ok) throw new Error(product.error ?? "Couldn't create the product.");
+      if (collectionId) {
+        await fetch(`/api/collections/${collectionId}/pieces`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "add", productId: product.id }),
+        }).catch(() => {});
+      }
       try {
         sessionStorage.setItem(PENDING_KEY(product.id), JSON.stringify({ text: text.trim(), photos }));
       } catch {
@@ -148,6 +162,21 @@ export default function CreateBox({ hasBrand }: { hasBrand: boolean }) {
             <Link href="/brand" className="text-[12.5px] text-accent hover:underline">
               Set up
             </Link>
+          )}
+          {collections.length > 0 && (
+            <select
+              className="input ml-1 h-8 w-auto max-w-44 py-0.5 text-[13px]"
+              aria-label="Collection"
+              value={collectionId}
+              onChange={(e) => setCollectionId(e.target.value)}
+            >
+              <option value="">No collection</option>
+              {collections.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
           )}
           <div className="flex-1" />
           <button

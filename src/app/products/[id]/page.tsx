@@ -3,7 +3,7 @@
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, Download, MessageSquare, MoreVertical, Trash2, X } from "lucide-react";
+import { ChevronLeft, Download, Layers, MessageSquare, MoreVertical, Trash2, X } from "lucide-react";
 import { Job, OutputKey, Product } from "@/lib/schema";
 import { watchJob } from "@/lib/jobsClient";
 import { Brief } from "@/components/ChatPanel";
@@ -11,14 +11,16 @@ import ChatPanel from "@/components/ChatPanel";
 import DesignStep from "@/components/steps/DesignStep";
 import SpecsStep from "@/components/steps/SpecsStep";
 import HandoffStep from "@/components/steps/HandoffStep";
+import SamplesStep from "@/components/steps/SamplesStep";
 import { PENDING_KEY } from "@/components/CreateBox";
 import LogoutButton from "@/components/LogoutButton";
 
-type Step = "design" | "specs" | "handoff";
+type Step = "design" | "specs" | "handoff" | "samples";
 const STEPS: { key: Step; label: string }[] = [
   { key: "design", label: "Design" },
   { key: "specs", label: "Specs" },
   { key: "handoff", label: "Hand off" },
+  { key: "samples", label: "Samples" },
 ];
 
 export default function ProductPage({
@@ -33,11 +35,22 @@ export default function ProductPage({
   const router = useRouter();
   const [product, setProduct] = useState<Product | null | undefined>(undefined);
   const [step, setStepState] = useState<Step>(
-    sp.step === "specs" || sp.step === "handoff" ? sp.step : "design",
+    sp.step === "specs" || sp.step === "handoff" || sp.step === "samples" ? sp.step : "design",
   );
   const [brief, setBrief] = useState<Brief | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [menu, setMenu] = useState(false);
+  const [collection, setCollection] = useState<{ id: string; name: string } | null>(null);
+
+  // Show which collection this piece belongs to.
+  const collectionId = product?.collectionId ?? null;
+  useEffect(() => {
+    if (!collectionId) return setCollection(null);
+    fetch(`/api/collections/${collectionId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setCollection(d ? { id: d.collection.id, name: d.collection.name } : null))
+      .catch(() => {});
+  }, [collectionId]);
 
   useEffect(() => {
     fetch(`/api/products/${id}`)
@@ -125,6 +138,16 @@ export default function ProductPage({
           aria-label="Product name"
           onBlur={(e) => rename(e.target.value)}
         />
+        {collection && (
+          <Link
+            href={`/collections/${collection.id}`}
+            className="hidden max-w-40 items-center gap-1.5 truncate rounded-md px-2 py-1 text-[12.5px] text-ink-2 hover:bg-panel hover:text-ink md:flex"
+            title={`In the collection ${collection.name}`}
+          >
+            <Layers size={13} className="shrink-0 text-accent" />
+            <span className="truncate">{collection.name}</span>
+          </Link>
+        )}
         <div className="relative">
           <button className="btn btn-ghost h-8 w-8 p-0" aria-label="More" onClick={() => setMenu((m) => !m)}>
             <MoreVertical size={16} />
@@ -196,6 +219,7 @@ export default function ProductPage({
       )}
       {step === "specs" && <SpecsStep product={product} onUpdate={setProduct} goNext={() => setStep("handoff")} />}
       {step === "handoff" && <HandoffStep product={product} onUpdate={setProduct} openSpecs={openSpecs} />}
+      {step === "samples" && <SamplesStep product={product} onUpdate={setProduct} openSpecs={openSpecs} />}
 
       {chatOpen && step !== "design" && (
         <div

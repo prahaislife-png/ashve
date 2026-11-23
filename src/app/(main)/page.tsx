@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getBrand, listProducts } from "@/lib/store";
+import { listCollections } from "@/lib/collections";
 import { productViews } from "@/lib/schema";
 import { fileUrl } from "@/lib/urls";
 import CreateBox from "@/components/CreateBox";
@@ -7,7 +8,7 @@ import CreateBox from "@/components/CreateBox";
 export const dynamic = "force-dynamic";
 
 export default async function CreatePage() {
-  const [brand, products] = await Promise.all([getBrand(), listProducts()]);
+  const [brand, products, collections] = await Promise.all([getBrand(), listProducts(), listCollections()]);
   const hasBrand = !!(brand.name || brand.aesthetic || brand.fabrics);
   const recent = products.filter((p) => productViews(p)["product-front"]).slice(0, 4);
 
@@ -21,7 +22,7 @@ export default async function CreatePage() {
         graded size chart and a pack a factory can quote from.
       </p>
 
-      <CreateBox hasBrand={hasBrand} />
+      <CreateBox hasBrand={hasBrand} collections={collections.map((c) => ({ id: c.id, name: c.name }))} />
 
       {recent.length > 0 && (
         <section className="mt-16" aria-labelledby="recent-heading">

@@ -1,6 +1,7 @@
 import "server-only";
 import ExcelJS from "exceljs";
 import { Brand, metaFor, Product } from "./schema";
+import { cmToIn, currencyOf, money, Units } from "./locale";
 
 const HEADER_FILL: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEFF2F7" } };
 const SAMPLE_FILL: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8EEFB" } };
@@ -45,7 +46,8 @@ function titleBlock(ws: ExcelJS.Worksheet, product: Product, brand: Brand, sheet
 }
 
 /** The tech pack as an Excel workbook: size chart, BOM, construction, colours, labels and care. */
-export async function buildWorkbook(product: Product, brand: Brand): Promise<Buffer> {
+export async function buildWorkbook(product: Product, brand: Brand, units: Units = "cm"): Promise<Buffer> {
+  const u = (v: number | null) => (v == null ? null : units === "in" ? cmToIn(v) : v);
   const tp = product.techPack!;
   const wb = new ExcelJS.Workbook();
   wb.creator = brand.name || "Tech Pack Studio";
@@ -53,7 +55,7 @@ export async function buildWorkbook(product: Product, brand: Brand): Promise<Buf
 
   /* Size chart */
   const sc = wb.addWorksheet("Size chart", { views: [{ state: "frozen", xSplit: 2, ySplit: 5 }] });
-  titleBlock(sc, product, brand, "Points of measure, in cm");
+  titleBlock(sc, product, brand, units === "in" ? "Points of measure, in inches" : "Points of measure, in cm");
   const baseIdx = Math.max(0, tp.sizes.indexOf(tp.baseSize));
   const fixed = ["Code", "Point of measure", "How to measure", "Tol ±", "Grade"];
   table(
@@ -63,7 +65,7 @@ export async function buildWorkbook(product: Product, brand: Brand): Promise<Buf
     tp.measurements.map((m) => {
       const mm = metaFor(product, m.code);
       const source = mm.source === "ai" ? "AI-suggested" : mm.source === "rule" ? "Graded" : "Edited";
-      return [m.code, m.name, m.howToMeasure, m.toleranceCm, mm.grade, ...m.values, source, mm.verified ? "Yes" : "No"];
+      return [m.code, m.name, m.howToMeasure, u(m.toleranceCm), u(mm.grade), ...m.values.map(u), source, mm.verified ? "Yes" : "No"];
     }),
   );
   sc.columns.forEach((col, i) => {
@@ -76,7 +78,7 @@ export async function buildWorkbook(product: Product, brand: Brand): Promise<Buf
     sample.font = { bold: true };
     const mm = metaFor(product, m.code);
     if (!mm.verified) row.getCell(fixed.length + tp.sizes.length + 2).fill = CHECK_FILL;
-    for (let c = 4; c <= fixed.length + tp.sizes.length; c++) row.getCell(c).numFmt = "0.0";
+    for (let c = 4; c <= fixed.length + tp.sizes.length; c++) row.getCell(c).numFmt = units === "in" ? "# ?/8" : "0.0";
   });
   sc.getRow(5).getCell(fixed.length + 1 + baseIdx).fill = SAMPLE_FILL;
 
@@ -124,6 +126,10 @@ export async function buildWorkbook(product: Product, brand: Brand): Promise<Buf
     ...tp.careInstructions.map((c) => ["Care", c]),
     ["Product label position", product.labels?.product.position ?? ""],
     ["Hang tag position", product.labels?.hangTag.position ?? ""],
+    ["Target factory cost", money(tp.costing.targetFobUsd, brand.currency)],
+    ["Target retail price", money(tp.costing.targetRetailUsd, brand.currency)],
+    ["Order size per colour", tp.costing.moqPerColor ?? ""],
+    ["Currency", currencyOf(brand.currency).label],
   ]);
   lab.getColumn(1).width = 28;
   lab.getColumn(2).width = 100;

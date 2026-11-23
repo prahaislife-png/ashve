@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { Check, Download, FileSpreadsheet, Ruler } from "lucide-react";
 import { gradeRow, inferGrade, MeasureMeta, metaFor, Product, TechPack } from "@/lib/schema";
+import { measure, parseInches, Units, unitLabel } from "@/lib/locale";
+import { usePrefs } from "@/lib/prefs";
 
 type Rows = TechPack["measurements"];
 
@@ -16,13 +18,14 @@ const TAG: Record<MeasureMeta["source"], { label: string; cls: string; title: st
   rule: { label: "Graded", cls: "bg-accent-soft text-ink", title: "Calculated from the sample size and the grade step." },
 };
 
-function csv(tp: TechPack, rows: Rows, meta: (code: string) => MeasureMeta) {
+function csv(tp: TechPack, rows: Rows, meta: (code: string) => MeasureMeta, units: Units) {
   const esc = (v: string | number | null) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const f = (v: number | null) => (v == null ? "" : measure(v, units, true));
   const out = [
-    ["Code", "Point of measure", "How to measure", "Tolerance ±", "Grade step", ...tp.sizes, "Source", "Verified"],
+    ["Code", "Point of measure", "How to measure", `Tolerance ± (${units})`, `Grade step (${units})`, ...tp.sizes, "Source", "Verified"],
     ...rows.map((m) => {
       const mm = meta(m.code);
-      return [m.code, m.name, m.howToMeasure, m.toleranceCm, mm.grade ?? "", ...m.values, TAG[mm.source].label, mm.verified ? "Yes" : "No"];
+      return [m.code, m.name, m.howToMeasure, f(m.toleranceCm), f(mm.grade), ...m.values.map(f), TAG[mm.source].label, mm.verified ? "Yes" : "No"];
     }),
   ];
   return out.map((r) => r.map(esc).join(",")).join("\n");
@@ -49,6 +52,14 @@ export default function SizeChart({
   const [rows, setRows] = useState<Rows | null>(null);
   const [meta, setMeta] = useState<Record<string, MeasureMeta> | null>(null);
   const [reset, setReset] = useState(0); // remounts the inputs after grading or discard
+  const { units, setUnits } = usePrefs();
+  /** What she typed, in the units on screen, as cm. */
+  const parse = (raw: string): number | null | undefined => {
+    if (raw.trim() === "") return null;
+    const v = units === "in" ? parseInches(raw) : Number(raw);
+    return v == null || Number.isNaN(v) ? undefined : v;
+  };
+  const show = (cm: number | null | undefined) => (cm == null ? "" : measure(cm, units, true));
 
   const current = rows ?? tp.measurements;
   const metaOf = (code: string) => meta?.[code] ?? metaFor(product, code);
@@ -63,8 +74,8 @@ export default function SizeChart({
   }
 
   function setCell(r: number, c: number | "tol", raw: string) {
-    const v = raw.trim() === "" ? null : Number(raw);
-    if (v !== null && Number.isNaN(v)) return;
+    const v = parse(raw);
+    if (v === undefined) return;
     const row = current[r];
     const next =
       c === "tol"
@@ -76,8 +87,8 @@ export default function SizeChart({
   }
 
   function setGrade(code: string, raw: string) {
-    const v = raw.trim() === "" ? null : Number(raw);
-    if (v !== null && Number.isNaN(v)) return;
+    const v = parse(raw);
+    if (v === undefined) return;
     patchMeta(code, { grade: v });
   }
 
@@ -144,6 +155,24 @@ export default function SizeChart({
           <span className="rounded bg-accent-soft px-1.5 py-px text-[11.5px] text-ink">Graded</span> from sample size{" "}
           <span className="code">{tp.baseSize}</span>
         </span>
+        <div className="ml-auto flex items-center gap-1 rounded-md bg-card p-0.5 shadow-elev-sm" role="radiogroup" aria-label="Units">
+          {(["cm", "in"] as const).map((u) => (
+            <button
+              key={u}
+              type="button"
+              role="radio"
+              aria-checked={units === u}
+              disabled={dirty}
+              title={dirty ? "Save or discard your changes first" : u === "cm" ? "Centimetres" : "Inches"}
+              onClick={() => setUnits(u)}
+              className={`rounded px-2.5 py-1 text-[12.5px] transition-colors ${
+                units === u ? "bg-accent text-accent-ink" : "text-ink-2 hover:text-ink"
+              }`}
+            >
+              {u}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -172,13 +201,13 @@ export default function SizeChart({
           </>
         ) : (
           <>
-            <a className="btn" href={`/api/products/${product.id}/excel`}>
+            <a className="btn" href={`/api/products/${product.id}/excel?units=${units}`}>
               <FileSpreadsheet size={14} /> Excel
             </a>
             <button
               className="btn"
               onClick={() => {
-                const blob = new Blob([csv(tp, current, metaOf)], { type: "text/csv" });
+                const blob = new Blob([csv(tp, current, metaOf, units)], { type: "text/csv" });
                 const a = document.createElement("a");
                 a.href = URL.createObjectURL(blob);
                 a.download = `${slug}-measurements.csv`;
@@ -193,13 +222,13 @@ export default function SizeChart({
       </div>
 
       <div className="overflow-x-auto">
-        <table className="tp-table" key={`${product.updatedAt}-${reset}`}>
+        <table className="tp-table" key={`${product.updatedAt}-${reset}-${units}`}>
           <thead>
             <tr>
               <th>Code</th>
               <th>Point of measure</th>
               <th className="text-right">Tol ±</th>
-              <th className="text-right" title="Change between neighbouring sizes, in cm">
+              <th className="text-right" title={`Change between neighbouring sizes, in ${unitLabel(units)}`}>
                 Grade
               </th>
               {tp.sizes.map((s) => (
@@ -227,20 +256,20 @@ export default function SizeChart({
                     <input
                       className="tp-num"
                       inputMode="decimal"
-                      defaultValue={m.toleranceCm}
+                      defaultValue={show(m.toleranceCm)}
                       aria-label={`${m.name} tolerance`}
-                      onBlur={(e) => setCell(r, "tol", e.target.value)}
+                      onBlur={(e) => e.target.value !== e.target.defaultValue && setCell(r, "tol", e.target.value)}
                     />
                   </td>
                   <td className="text-right">
                     <input
                       className={`tp-num ${mm.grade == null ? "text-muted" : ""}`}
                       inputMode="decimal"
-                      defaultValue={shownGrade ?? ""}
+                      defaultValue={show(shownGrade)}
                       aria-label={`${m.name} grade step`}
                       title={mm.grade == null ? "Read from the current numbers. Type a value to set it." : "Your grade step"}
                       onBlur={(e) => {
-                        if (e.target.value !== String(shownGrade ?? "")) setGrade(m.code, e.target.value);
+                        if (e.target.value !== e.target.defaultValue) setGrade(m.code, e.target.value);
                       }}
                     />
                   </td>
@@ -249,9 +278,9 @@ export default function SizeChart({
                       <input
                         className={`tp-num ${c === baseIndex ? "font-medium" : ""}`}
                         inputMode="decimal"
-                        defaultValue={m.values[c] ?? ""}
+                        defaultValue={show(m.values[c])}
                         aria-label={`${m.name} size ${s}`}
-                        onBlur={(e) => setCell(r, c, e.target.value)}
+                        onBlur={(e) => e.target.value !== e.target.defaultValue && setCell(r, c, e.target.value)}
                       />
                     </td>
                   ))}
@@ -277,7 +306,8 @@ export default function SizeChart({
         </table>
       </div>
       <p className="mt-3 text-[12.5px] text-muted">
-        All measurements in cm. Click a number to change it. Grading keeps the sample size ({tp.baseSize}) and calculates
+        All measurements in {unitLabel(units)}
+        {units === "in" ? " (type 32 1/2 or 32.5)" : ""}. Click a number to change it. Grading keeps the sample size ({tp.baseSize}) and calculates
         the other sizes from each row&apos;s grade step. Changed rows lose their verified tick until you check them again.
       </p>
     </div>

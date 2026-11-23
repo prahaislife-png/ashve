@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FolderOpen, Plus, Ruler } from "lucide-react";
+import { FolderOpen, Layers, Plus, Ruler } from "lucide-react";
 import { getBrand, listProducts } from "@/lib/store";
 import { productViews } from "@/lib/schema";
 import { fileUrl } from "@/lib/urls";
@@ -29,6 +29,7 @@ export default async function MainLayout({ children }: { children: React.ReactNo
 
         <nav className="space-y-0.5 text-[13.5px]" aria-label="Main">
           <NavLink href="/workspace" icon={<FolderOpen size={15} />} label="All products" />
+          <NavLink href="/collections" icon={<Layers size={15} />} label="Collections" />
           <NavLink href="/brand" icon={<Ruler size={15} />} label="Brand DNA" />
         </nav>
 
@@ -77,6 +78,7 @@ export default async function MainLayout({ children }: { children: React.ReactNo
             <span className="h-title">Tech Pack Studio</span>
           </Link>
           <Link href="/workspace" className="btn btn-ghost">Products</Link>
+          <Link href="/collections" className="btn btn-ghost">Collections</Link>
           <Link href="/brand" className="btn btn-ghost">Brand</Link>
           {passwordOn && <LogoutButton compact className="btn btn-ghost" />}
         </div>

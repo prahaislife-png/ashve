@@ -25,3 +25,14 @@ export async function PUT(req: Request) {
   await saveBrand(brand);
   return NextResponse.json(brand);
 }
+
+/** Change a few text settings (e.g. units from the size chart) without sending the whole brand. */
+export async function PATCH(req: Request) {
+  const body = (await req.json().catch(() => ({}))) as Partial<Record<keyof Brand, unknown>>;
+  const brand = await getBrand();
+  for (const key of Object.keys(emptyBrand) as (keyof Brand)[]) {
+    if (key !== "palette" && typeof body[key] === "string") (brand[key] as string) = (body[key] as string).slice(0, 4000);
+  }
+  await saveBrand(brand);
+  return NextResponse.json(brand);
+}

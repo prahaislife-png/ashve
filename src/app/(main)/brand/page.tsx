@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { Brand, emptyBrand } from "@/lib/schema";
+import { CURRENCIES, currencyOf, LANGUAGES, VENDOR_COUNTRIES } from "@/lib/locale";
 
-type TextKey = Exclude<keyof Brand, "palette">;
+type TextKey = Exclude<keyof Brand, "palette" | "currency" | "units" | "factoryLanguage" | "vendorCountry">;
 
 const FIELDS: { key: TextKey; label: string; hint: string; long?: boolean }[] = [
   { key: "name", label: "Brand name", hint: "" },
@@ -51,8 +52,8 @@ const FIELDS: { key: TextKey; label: string; hint: string; long?: boolean }[] = 
     hint: "e.g. Recycled poly bag, folded with tissue, hang tag on cotton string.",
     long: true,
   },
-  { key: "targetFobUsd", label: "Target factory cost per piece (USD)", hint: "e.g. 12–18" },
-  { key: "targetRetailUsd", label: "Target retail price (USD)", hint: "e.g. 68–98" },
+  { key: "targetFobUsd", label: "Target factory cost per piece", hint: "e.g. 450–650" },
+  { key: "targetRetailUsd", label: "Target retail price", hint: "e.g. 1,999–2,999" },
   { key: "moqPerColor", label: "Order size per colour", hint: "e.g. 100–300 units" },
 ];
 
@@ -94,10 +95,72 @@ export default function BrandPage() {
         Saved once, used in every tech pack. The more specific, the better the first draft.
       </p>
 
-      <div className="mt-6 space-y-5 rounded-xl border border-line bg-card p-5">
+      <div className="mt-6 rounded-xl border border-line bg-card p-5">
+        <h2 className="h-title text-[17px]">Where you make and sell</h2>
+        <p className="mt-0.5 text-[13px] text-ink-2">
+          Used for prices, the size chart and the documents you send to vendors. You can change any of these per
+          download too.
+        </p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium">Vendors are mostly in</span>
+            <select className="input" value={brand.vendorCountry} onChange={(e) => update("vendorCountry", e.target.value)}>
+              {VENDOR_COUNTRIES.map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium">Currency</span>
+            <select className="input" value={brand.currency} onChange={(e) => update("currency", e.target.value)}>
+              {CURRENCIES.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <fieldset>
+            <legend className="mb-1 block text-sm font-medium">Measurements</legend>
+            <div className="tabs w-fit" role="tablist" aria-label="Measurements">
+              {(["cm", "in"] as const).map((u) => (
+                <button
+                  key={u}
+                  type="button"
+                  role="tab"
+                  aria-selected={brand.units === u}
+                  className="tab"
+                  onClick={() => update("units", u)}
+                >
+                  {u === "cm" ? "Centimetres" : "Inches"}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium">Language for vendor documents</span>
+            <select
+              className="input"
+              value={brand.factoryLanguage}
+              onChange={(e) => update("factoryLanguage", e.target.value)}
+            >
+              {LANGUAGES.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.code === "en" ? "English only" : `${l.name} (${l.native}) with English`}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div className="mt-4 space-y-5 rounded-xl border border-line bg-card p-5">
         {FIELDS.map((f) => (
           <label key={f.key} className="block">
-            <span className="mb-1 block text-sm font-medium">{f.label}</span>
+            <span className="mb-1 block text-sm font-medium">
+              {f.label}
+              {(f.key === "targetFobUsd" || f.key === "targetRetailUsd") && ` (${currencyOf(brand.currency).code})`}
+            </span>
             {f.long ? (
               <textarea
                 className="input min-h-20"

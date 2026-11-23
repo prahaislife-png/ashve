@@ -181,6 +181,11 @@ export type Brand = {
   targetFobUsd: string;
   targetRetailUsd: string;
   moqPerColor: string;
+  /** Regional choices (see lib/locale.ts). Prices are in `currency`; data is always stored in cm. */
+  currency: string;
+  units: string;
+  factoryLanguage: string;
+  vendorCountry: string;
 };
 
 export const emptyBrand: Brand = {
@@ -198,6 +203,10 @@ export const emptyBrand: Brand = {
   targetFobUsd: "",
   targetRetailUsd: "",
   moqPerColor: "",
+  currency: "INR",
+  units: "cm",
+  factoryLanguage: "en",
+  vendorCountry: "India",
 };
 
 /* ---------- Product (stored) ---------- */
@@ -322,7 +331,142 @@ export type Product = {
   decisionCards?: Record<string, DecisionCard>;
   /** Decisions she has already made, newest last. */
   decisionLog?: DecisionLogEntry[];
+  /** The collection (drop) this product belongs to. */
+  collectionId?: string | null;
+  /** Sample rounds with the vendor: proto, fit, size set, PP, TOP. */
+  samples?: SampleRound[];
+  /** Factory-language copies of the tech pack, keyed by language code. */
+  translations?: Record<string, Translation>;
 };
+
+/* ---------- Factory-language translation ---------- */
+
+export type Translation = {
+  at: string;
+  /** Fingerprint of the English tech pack it was made from (to spot when it's out of date). */
+  source: string;
+  /** English text → translated text. */
+  strings: Record<string, string>;
+};
+
+/* ---------- Sample rounds ---------- */
+
+export const SAMPLE_STAGES = {
+  proto: "Proto sample",
+  fit: "Fit sample",
+  "size-set": "Size set",
+  pp: "Pre-production (PP)",
+  top: "Top of production (TOP)",
+} as const;
+export type SampleStage = keyof typeof SAMPLE_STAGES;
+
+export const COMMENT_AREAS = [
+  "Fit",
+  "Measurements",
+  "Construction",
+  "Fabric",
+  "Trims",
+  "Colour",
+  "Print",
+  "Labels",
+  "Finishing",
+  "Packing",
+  "Other",
+] as const;
+
+export type FitComment = {
+  id: string;
+  area: string;
+  text: string;
+  severity: "minor" | "major";
+  /** One of the round's photos, if the comment points at it. */
+  photo: string | null;
+};
+
+export type SampleRound = {
+  id: string;
+  n: number;
+  stage: SampleStage;
+  vendor: string;
+  status: "requested" | "received" | "reviewed";
+  verdict: "approved" | "revise" | "rejected" | null;
+  requestedAt: string;
+  dueAt: string | null;
+  receivedAt: string | null;
+  /** Size of the sample that was made and measured. */
+  size: string;
+  photos: { file: string; caption: string }[];
+  /** Measured value per point-of-measure code, in cm. */
+  measured: Record<string, number | null>;
+  comments: FitComment[];
+  overall: string;
+  /** Sample cost the vendor charged, in brand currency. */
+  sampleCost: number | null;
+  /** The tech pack the vendor worked from. */
+  snapshot: TechPack;
+  /** Set once the tech pack was revised from this round's comments. */
+  revision: { at: string; summary: string; changed: { key: string; label: string }[] } | null;
+};
+
+/* ---------- Collections ---------- */
+
+export type CollectionStatus = "planning" | "developing" | "sampling" | "ready" | "launched";
+
+export type CollectionFabric = {
+  id: string;
+  name: string;
+  composition: string;
+  construction: string;
+  weightGsm: number | null;
+  supplier: string;
+  pricePerM: number | null;
+  notes: string;
+};
+
+/** A slot in the line plan: an idea until a product is started for it. */
+export type PlanItem = {
+  id: string;
+  name: string;
+  category: string;
+  notes: string;
+  colorways: string[];
+  targetCost: number | null;
+  targetRetail: number | null;
+  productId: string | null;
+};
+
+export type Collection = {
+  id: string;
+  name: string;
+  season: string;
+  launchDate: string | null;
+  story: string;
+  status: CollectionStatus;
+  moodboard: string[];
+  palette: { name: string; pantone: string; hex: string }[];
+  fabrics: CollectionFabric[];
+  sizes: string;
+  targetPieces: number | null;
+  plan: PlanItem[];
+  share?: { token: string; createdAt: string; productTokens: string[] } | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export const PlanSuggestSchema = z.object({
+  pieces: z
+    .array(
+      z.object({
+        name: z.string().describe("Piece name, e.g. 'Smocked wide-leg pant'"),
+        category: z.string().describe("e.g. 'Bottoms', 'Tops', 'Sets', 'Sleepwear', 'Outerwear'"),
+        notes: z.string().describe("One or two lines: silhouette, key details and why it fits the collection"),
+        colorways: z.array(z.string()).describe("Names from the collection palette"),
+        fabric: z.string().describe("Name of a fabric from the collection library, or '' if none fits"),
+      }),
+    )
+    .describe("New pieces that round out the collection"),
+  rationale: z.string().describe("One or two sentences on how these pieces balance the line"),
+});
 
 /* ---------- Decisions (open questions answered in place) ---------- */
 
@@ -447,7 +591,7 @@ export type SavedVersion = {
 
 /* ---------- Background jobs ---------- */
 
-export type JobKind = "flats" | "views" | "technical";
+export type JobKind = "flats" | "views" | "technical" | "translate";
 export type JobStepState = "waiting" | "running" | "done" | "failed";
 
 export type Job = {

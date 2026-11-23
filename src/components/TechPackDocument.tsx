@@ -1,24 +1,53 @@
 import { PinnedImage } from "@/components/specs/DetailedSpecs";
-import { Brand, metaFor, MOCKUP_VIEWS, Product, PRODUCT_VIEWS, productViews } from "@/lib/schema";
+import { Brand, metaFor, MOCKUP_VIEWS, Product, PRODUCT_VIEWS, productViews, Translation } from "@/lib/schema";
+import { isRtl, measure, money, Units } from "@/lib/locale";
+import { T, translator } from "@/lib/translate";
+import { scriptFontStack, scriptFontVars } from "@/lib/scriptFonts";
 
-function PageHead({ title, subtitle, page, brand, rev }: { title: string; subtitle?: string; page: string; brand: string; rev: number }) {
+/**
+ * Text in the factory's language with the English underneath (English only when
+ * there is no translation). `inline` keeps both on one line, for short labels.
+ */
+export function Bi({ en, t, inline = false }: { en: string | null | undefined; t: T; inline?: boolean }) {
+  if (!en) return null;
+  const x = t(en);
+  if (!x || x === en) return <>{en}</>;
+  if (inline)
+    return (
+      <>
+        {x} <span className="text-[0.85em] font-normal normal-case tracking-normal text-muted">/ {en}</span>
+      </>
+    );
+  return (
+    <span className="block">
+      <span className="block">{x}</span>
+      <span className="block text-[0.85em] font-normal normal-case tracking-normal text-muted">{en}</span>
+    </span>
+  );
+}
+
+function PageHead({ title, subtitle, page, brand, rev, t }: { title: string; subtitle?: React.ReactNode; page: string; brand: string; rev: number; t: T }) {
   return (
     <div className="mb-4 flex items-start justify-between border-b-2 border-ink pb-2">
       <div>
         <div className="text-[10px] uppercase tracking-widest text-muted">{brand || "Tech pack"}</div>
-        <div className="h-title text-lg">{title}</div>
+        <div className="h-title text-lg"><Bi en={title} t={t} inline /></div>
         {subtitle && <div className="text-[11px] text-muted">{subtitle}</div>}
       </div>
       <div className="text-right text-[10px] text-muted">
         <div>{page}</div>
-        <div>Revision {rev}</div>
+        <div><Bi en="Revision" t={t} inline /> {rev}</div>
       </div>
     </div>
   );
 }
 
-function H({ children }: { children: React.ReactNode }) {
-  return <h3 className="mb-1.5 mt-4 border-b border-line pb-1 text-[11px] font-semibold uppercase tracking-wider">{children}</h3>;
+function H({ children, t }: { children: string; t: T }) {
+  return (
+    <h3 className="mb-1.5 mt-4 border-b border-line pb-1 text-[11px] font-semibold uppercase tracking-wider">
+      <Bi en={children} t={t} inline />
+    </h3>
+  );
 }
 
 /**
@@ -30,13 +59,22 @@ export default function TechPackDocument({
   brand,
   base,
   toolbar,
+  units = "cm",
+  lang = "en",
+  translation = null,
 }: {
   product: Product;
   brand: Brand;
   base: string;
   toolbar?: React.ReactNode;
+  units?: Units;
+  lang?: string;
+  translation?: Translation | null;
 }) {
   const tp = product.techPack!;
+  const t = translator(lang === "en" ? null : translation);
+  const M = (v: number | null | undefined) => measure(v, units);
+  const cur = brand.currency;
   const url = (f: string) => `${base}/files/${f}`;
   const views = productViews(product);
   const flats = product.flats?.at(-1);
@@ -54,7 +92,12 @@ export default function TechPackDocument({
   const pg = () => `PAGE ${++n} / ${total}`;
 
   return (
-    <div className="theme-light mx-auto max-w-[210mm] bg-white px-6 py-6 text-[12px] text-ink print:max-w-none print:p-0">
+    <div
+      className={`theme-light ${scriptFontVars} mx-auto max-w-[210mm] bg-white px-6 py-6 text-[12px] text-ink print:max-w-none print:p-0`}
+      style={{ fontFamily: scriptFontStack }}
+      lang={lang}
+      dir={isRtl(lang) ? "rtl" : undefined}
+    >
       {toolbar}
 
       {/* ---------- 1. Overview ---------- */}
@@ -62,17 +105,17 @@ export default function TechPackDocument({
         <div className="mb-4 flex items-start justify-between gap-6 border-b-2 border-ink pb-3">
           <div className="max-w-[60%]">
             <div className="h-title text-xl">{tp.styleName}</div>
-            <p className="mt-1 text-[11px] leading-snug text-muted">{tp.description}</p>
-            <div className="mt-1 text-[10px] font-semibold">REVISION: {rev}</div>
+            <p className="mt-1 text-[11px] leading-snug text-muted"><Bi en={tp.description} t={t} /></p>
+            <div className="mt-1 text-[10px] font-semibold"><Bi en="Revision" t={t} inline />: {rev}</div>
           </div>
           <div className="text-right text-[11px] leading-relaxed">
             <div className="text-[10px] text-muted">{pg()}</div>
-            <div><span className="text-muted">Style no.</span> {tp.styleNumber || "TBC"}</div>
-            <div><span className="text-muted">Category</span> {tp.category}</div>
-            <div><span className="text-muted">Sub-category</span> {tp.subcategory}</div>
-            <div><span className="text-muted">Season</span> {tp.season || "—"}</div>
-            <div><span className="text-muted">Designer</span> {brandName || "—"}</div>
-            <div><span className="text-muted">Issued</span> {new Date(product.updatedAt).toLocaleDateString()}</div>
+            <div><span className="text-muted"><Bi en="Style no." t={t} inline /></span> {tp.styleNumber || "TBC"}</div>
+            <div><span className="text-muted"><Bi en="Category" t={t} inline /></span> {tp.category}</div>
+            <div><span className="text-muted"><Bi en="Sub-category" t={t} inline /></span> {tp.subcategory}</div>
+            <div><span className="text-muted"><Bi en="Season" t={t} inline /></span> {tp.season || "—"}</div>
+            <div><span className="text-muted"><Bi en="Designer" t={t} inline /></span> {brandName || "—"}</div>
+            <div><span className="text-muted"><Bi en="Issued" t={t} inline /></span> {new Date(product.updatedAt).toLocaleDateString("en-GB")}</div>
           </div>
         </div>
 
@@ -80,7 +123,7 @@ export default function TechPackDocument({
           <div className="print-section grid grid-cols-3 gap-3">
             {PRODUCT_VIEWS.map((v) => (
               <figure key={v} className="rounded border border-line p-1.5">
-                <figcaption className="mb-1 text-[9px] uppercase tracking-wider text-muted">{v.replace("product-", "")}</figcaption>
+                <figcaption className="mb-1 text-[9px] uppercase tracking-wider text-muted"><Bi en={v === "product-front" ? "Front" : v === "product-back" ? "Back" : "Side"} t={t} inline /></figcaption>
                 {views[v] ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={url(views[v]!.file)} alt={MOCKUP_VIEWS[v]} className="aspect-[4/5] w-full object-contain" />
@@ -94,25 +137,27 @@ export default function TechPackDocument({
 
         <div className="mt-2 grid grid-cols-2 gap-6">
           <div>
-            <H>Product summary</H>
+            <H t={t}>Product summary</H>
             <dl className="space-y-1 text-[11px]">
-              {[
-                ["Category", `${tp.category} / ${tp.subcategory}`],
-                ["Product type", tp.productType],
-                ["Fit", tp.fit],
-                ["Intended use", tp.intendedUse],
-                ["Target market", tp.targetMarket],
-                ["Sizes", `${tp.sizes.join(", ")} (sample ${tp.baseSize})`],
-                ["Est. weight", tp.estimatedWeightG ? `${tp.estimatedWeightG} g (size M)` : "—"],
-                ["Pattern", tp.pattern || "—"],
-              ].map(([k, v]) => (
+              {(
+                [
+                  ["Category", <><Bi en={tp.category} t={t} inline /> / <Bi en={tp.subcategory} t={t} inline /></>],
+                  ["Product type", <Bi key="pt" en={tp.productType} t={t} />],
+                  ["Fit", <Bi key="fit" en={tp.fit} t={t} />],
+                  ["Intended use", <Bi key="use" en={tp.intendedUse} t={t} />],
+                  ["Target market", <Bi key="mkt" en={tp.targetMarket} t={t} />],
+                  ["Sizes", `${tp.sizes.join(", ")} (${t("Sample size") ?? "sample"} ${tp.baseSize})`],
+                  ["Est. weight", tp.estimatedWeightG ? `${tp.estimatedWeightG} g (M)` : "—"],
+                  ["Pattern", tp.pattern ? <Bi key="pat" en={tp.pattern} t={t} /> : "—"],
+                ] as [string, React.ReactNode][]
+              ).map(([k, v]) => (
                 <div key={k} className="grid grid-cols-[90px_1fr] gap-2">
-                  <dt className="text-muted">{k}</dt>
+                  <dt className="text-muted"><Bi en={k} t={t} /></dt>
                   <dd>{v}</dd>
                 </div>
               ))}
             </dl>
-            <H>Colourway</H>
+            <H t={t}>Colourway</H>
             <div className="space-y-1">
               {tp.colorways.map((c, i) => (
                 <div key={i} className="flex items-center gap-2">
@@ -124,7 +169,7 @@ export default function TechPackDocument({
             </div>
             {tp.accentColors.length > 0 && (
               <>
-                <H>Secondary colours</H>
+                <H t={t}>Secondary colours</H>
                 <div className="space-y-1">
                   {tp.accentColors.map((c, i) => (
                     <div key={i} className="flex items-center gap-2">
@@ -138,28 +183,28 @@ export default function TechPackDocument({
             )}
           </div>
           <div>
-            <H>Bill of materials</H>
+            <H t={t}>Bill of materials</H>
             <table className="tp-table text-[10.5px]">
               <thead>
                 <tr>
-                  <th>Component</th>
-                  <th>Material</th>
-                  <th>Spec</th>
+                  <th><Bi en="Component" t={t} /></th>
+                  <th><Bi en="Material" t={t} /></th>
+                  <th><Bi en="Spec" t={t} /></th>
                 </tr>
               </thead>
               <tbody>
                 {tp.fabrics.map((f, i) => (
                   <tr key={`f${i}`}>
-                    <td className="font-medium">{f.placement}</td>
-                    <td>{f.composition}, {f.construction}</td>
-                    <td>{[f.weightGsm && `${f.weightGsm} GSM`, f.finish].filter(Boolean).join(", ")}</td>
+                    <td className="font-medium"><Bi en={f.placement} t={t} /></td>
+                    <td><Bi en={f.composition} t={t} />, <Bi en={f.construction} t={t} /></td>
+                    <td>{f.weightGsm ? `${f.weightGsm} GSM` : ""}{f.weightGsm && f.finish ? ", " : ""}<Bi en={f.finish} t={t} /></td>
                   </tr>
                 ))}
-                {tp.trims.map((t, i) => (
+                {tp.trims.map((tr, i) => (
                   <tr key={`t${i}`}>
-                    <td className="font-medium">{t.item}</td>
-                    <td>{t.description}</td>
-                    <td>{t.placement} · {t.quantity}</td>
+                    <td className="font-medium"><Bi en={tr.item} t={t} /></td>
+                    <td><Bi en={tr.description} t={t} /></td>
+                    <td><Bi en={tr.placement} t={t} /> · <Bi en={tr.quantity} t={t} inline /></td>
                   </tr>
                 ))}
               </tbody>
@@ -171,7 +216,7 @@ export default function TechPackDocument({
       {/* ---------- 2. Flats ---------- */}
       {flats && (
         <section className="page-break mt-10 print:mt-0">
-          <PageHead title="Flat sketches" subtitle="Technical flats drawn to the sample size" page={pg()} brand={brandName} rev={rev} />
+          <PageHead title="Flat sketches" subtitle={<Bi en="Technical flats drawn to the sample size" t={t} inline />} page={pg()} brand={brandName} rev={rev} t={t} />
           <div className="grid grid-cols-2 gap-3">
             {[["Front", flats.front], ["Back", flats.back]].map(([label, f]) => (
               <figure key={label} className="rounded border border-line p-1.5">
@@ -184,7 +229,7 @@ export default function TechPackDocument({
             <div className="mt-3 grid grid-cols-2 gap-3">
               {(["front", "back"] as const).map((side) => (
                 <figure key={side} className="rounded border border-line p-1.5">
-                  <figcaption className="text-[9px] uppercase tracking-wider text-muted">Coloured sketch – {side} – {tp.colorways[0].name}</figcaption>
+                  <figcaption className="text-[9px] uppercase tracking-wider text-muted"><Bi en="Coloured sketch" t={t} inline /> – <Bi en={side === "front" ? "Front" : "Back"} t={t} inline /> – {tp.colorways[0].name}</figcaption>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={`${base}/flats/colored?side=${side}&hex=${tp.colorways[0].hex.replace("#", "")}`} alt={`Coloured ${side}`} className="aspect-[4/3] w-full object-contain" />
                 </figure>
@@ -199,7 +244,7 @@ export default function TechPackDocument({
                 {(flats.technicalNotes ?? []).map((c) => (
                   <li key={c.n}>
                     <span className="mr-1 font-bold text-pin">{c.n}</span>
-                    <span className="font-medium">{c.title}.</span> {c.detail}
+                    <span className="font-medium"><Bi en={c.title} t={t} inline />.</span> <Bi en={c.detail} t={t} />
                   </li>
                 ))}
               </ol>
@@ -210,7 +255,19 @@ export default function TechPackDocument({
 
       {/* ---------- 3. Measurements ---------- */}
       <section className="page-break mt-10 print:mt-0">
-        <PageHead title="Points of measurement" subtitle="Each code marks a dimension on the measurement guide. All measures in cm." page={pg()} brand={brandName} rev={rev} />
+        <PageHead
+          title="Points of measurement"
+          subtitle={
+            <>
+              <Bi en="Each code marks a dimension on the measurement guide." t={t} inline />{" "}
+              <strong className="text-ink"><Bi en={units === "in" ? "All measures in inches." : "All measures in cm."} t={t} inline /></strong>
+            </>
+          }
+          page={pg()}
+          brand={brandName}
+          rev={rev}
+          t={t}
+        />
         {flats && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={url(flats.measurementGuide)} alt="Measurement guide" className="print-section mx-auto mb-3 max-h-[110mm] w-full object-contain" />
@@ -219,32 +276,32 @@ export default function TechPackDocument({
           <thead>
             <tr>
               <th>#</th>
-              <th>Point of measure</th>
-              <th>How to measure</th>
-              <th className="text-right">Tol ±</th>
+              <th><Bi en="Point of measure" t={t} /></th>
+              <th><Bi en="How to measure" t={t} /></th>
+              <th className="text-right"><Bi en="Tolerance" t={t} /> ±</th>
               {tp.sizes.map((s) => (
                 <th key={s} className={`text-right ${s === tp.baseSize ? "text-ink" : ""}`}>{s}</th>
               ))}
-              <th>Status</th>
+              <th><Bi en="Status" t={t} /></th>
             </tr>
           </thead>
           <tbody>
             {tp.measurements.map((m, i) => (
               <tr key={i}>
                 <td className="whitespace-nowrap font-semibold text-pin">{m.code}</td>
-                <td>{m.name}</td>
-                <td className="text-muted">{m.howToMeasure}</td>
-                <td className="text-right">{m.toleranceCm}</td>
+                <td><Bi en={m.name} t={t} /></td>
+                <td className="text-muted"><Bi en={m.howToMeasure} t={t} /></td>
+                <td className="text-right">{M(m.toleranceCm)}</td>
                 {m.values.map((v, j) => (
-                  <td key={j} className={`text-right tabular-nums ${tp.sizes[j] === tp.baseSize ? "font-semibold" : ""}`}>{v ?? "—"}</td>
+                  <td key={j} className={`whitespace-nowrap text-right tabular-nums ${tp.sizes[j] === tp.baseSize ? "font-semibold" : ""}`}>{M(v)}</td>
                 ))}
                 <td className="whitespace-nowrap text-[10px]">
                   {(() => {
                     const mm = metaFor(product, m.code);
-                    if (mm.verified) return <span className="text-ok">Verified</span>;
+                    if (mm.verified) return <span className="text-ok"><Bi en="Verified" t={t} /></span>;
                     return (
                       <span className="text-warn-ink">
-                        {mm.source === "rule" ? "Graded" : mm.source === "edited" ? "Edited" : "To confirm"}
+                        <Bi en={mm.source === "rule" ? "Graded" : mm.source === "edited" ? "Edited" : "To confirm"} t={t} />
                       </span>
                     );
                   })()}
@@ -257,13 +314,13 @@ export default function TechPackDocument({
 
       {/* ---------- 4. Construction & details ---------- */}
       <section className="page-break mt-10 print:mt-0">
-        <PageHead title="Construction & details" page={pg()} brand={brandName} rev={rev} />
+        <PageHead title="Construction & details" page={pg()} brand={brandName} rev={rev} t={t} />
         <table className="tp-table text-[10.5px]">
           <tbody>
             {tp.construction.map((c, i) => (
               <tr key={i}>
-                <td className="w-[28%] font-medium">{c.area}</td>
-                <td>{c.method}</td>
+                <td className="w-[28%] font-medium"><Bi en={c.area} t={t} /></td>
+                <td><Bi en={c.method} t={t} /></td>
               </tr>
             ))}
           </tbody>
@@ -271,7 +328,7 @@ export default function TechPackDocument({
 
         {pins.length > 0 && (
           <>
-            <H>Detail callouts</H>
+            <H t={t}>Detail callouts</H>
             {pinImages.map((img) => (
               <div key={img} className="print-section mb-4 grid grid-cols-[1fr_1.2fr] gap-4">
                 <PinnedImage src={url(img)} pins={pins.filter((p) => p.image === img)} />
@@ -279,7 +336,7 @@ export default function TechPackDocument({
                   {pins.filter((p) => p.image === img).map((p) => (
                     <li key={p.id}>
                       <span className="mr-1 font-bold text-pin">{p.n}</span>
-                      <span className="font-medium">{p.title}.</span> {p.note}
+                      <span className="font-medium"><Bi en={p.title} t={t} inline />.</span> <Bi en={p.note} t={t} />
                     </li>
                   ))}
                 </ol>
@@ -301,24 +358,25 @@ export default function TechPackDocument({
 
         <div className="grid grid-cols-2 gap-6">
           <div>
-            <H>Care</H>
+            <H t={t}>Care</H>
             <ul className="list-disc pl-4 text-[11px]">
-              {tp.careInstructions.map((c, i) => <li key={i}>{c}</li>)}
+              {tp.careInstructions.map((c, i) => <li key={i}><Bi en={c} t={t} /></li>)}
             </ul>
           </div>
           <div>
-            <H>Costing targets</H>
-            <div className="text-[11px]">
-              FOB {tp.costing.targetFobUsd != null ? `$${tp.costing.targetFobUsd}` : "—"} · Retail{" "}
-              {tp.costing.targetRetailUsd != null ? `$${tp.costing.targetRetailUsd}` : "—"} · MOQ/colour {tp.costing.moqPerColor ?? "—"}
+            <H t={t}>Costing targets</H>
+            <div className="space-y-0.5 text-[11px]">
+              <div><Bi en="Factory cost" t={t} inline />: {money(tp.costing.targetFobUsd, cur)}</div>
+              <div><Bi en="Retail" t={t} inline />: {money(tp.costing.targetRetailUsd, cur)}</div>
+              <div><Bi en="Order size per colour" t={t} inline />: {tp.costing.moqPerColor ?? "—"}</div>
             </div>
           </div>
         </div>
         {tp.openQuestions.length > 0 && (
           <>
-            <H>Open points to confirm with the factory</H>
+            <H t={t}>Open points to confirm with the factory</H>
             <ul className="list-disc pl-4 text-[11px]">
-              {tp.openQuestions.map((q, i) => <li key={i}>{q}</li>)}
+              {tp.openQuestions.map((q, i) => <li key={i}><Bi en={q} t={t} /></li>)}
             </ul>
           </>
         )}
@@ -327,10 +385,10 @@ export default function TechPackDocument({
       {/* ---------- 5. Prints & labels ---------- */}
       {(prints.length > 0 || labels?.product.file || labels?.hangTag.file) && (
         <section className="page-break mt-10 print:mt-0">
-          <PageHead title="Prints, labels & packaging" page={pg()} brand={brandName} rev={rev} />
+          <PageHead title="Prints, labels & packaging" page={pg()} brand={brandName} rev={rev} t={t} />
           {prints.length > 0 && (
             <>
-              <H>Print specs</H>
+              <H t={t}>Print specs</H>
               <div className="grid grid-cols-3 gap-3">
                 {prints.map((p) => (
                   <figure key={p.id} className="print-section">
@@ -339,8 +397,8 @@ export default function TechPackDocument({
                     <figcaption className="mt-1 text-[10px]">
                       <div className="font-medium">{p.name}</div>
                       <div className="text-muted">
-                        {p.kind === "repeat" ? "Seamless repeat" : "Placement"} · {p.placement}
-                        {p.widthCm || p.heightCm ? ` · ${p.widthCm ?? "?"} × ${p.heightCm ?? "?"} cm` : ""}
+                        <Bi en={p.kind === "repeat" ? "Seamless repeat" : "Placement"} t={t} inline /> · <Bi en={p.placement} t={t} inline />
+                        {p.widthCm || p.heightCm ? ` · ${M(p.widthCm)} × ${M(p.heightCm)} ${units}` : ""}
                       </div>
                     </figcaption>
                   </figure>
@@ -352,24 +410,24 @@ export default function TechPackDocument({
             {(["product", "hangTag"] as const).map((slot) =>
               labels?.[slot].file ? (
                 <div key={slot} className="print-section">
-                  <H>{slot === "product" ? "Product label" : "Hang tag"}</H>
+                  <H t={t}>{slot === "product" ? "Product label" : "Hang tag"}</H>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={url(labels[slot].file!)} alt={slot} className="w-full rounded border border-line object-contain" />
                   <div className="mt-1 text-[10px] text-muted">
-                    Position: {labels[slot].position}
-                    {labels[slot].notes ? ` · ${labels[slot].notes}` : ""}
+                    <Bi en="Position" t={t} inline />: <Bi en={labels[slot].position} t={t} inline />
+                    {labels[slot].notes ? <> · <Bi en={labels[slot].notes} t={t} inline /></> : null}
                   </div>
                 </div>
               ) : null,
             )}
           </div>
-          <H>Labels & packaging spec</H>
+          <H t={t}>Labels & packaging spec</H>
           <table className="tp-table text-[10.5px]">
             <tbody>
               {tp.labelsPackaging.map((l, i) => (
                 <tr key={i}>
-                  <td className="w-[28%] font-medium">{l.item}</td>
-                  <td>{l.details}</td>
+                  <td className="w-[28%] font-medium"><Bi en={l.item} t={t} /></td>
+                  <td><Bi en={l.details} t={t} /></td>
                 </tr>
               ))}
             </tbody>
@@ -379,7 +437,7 @@ export default function TechPackDocument({
 
       {(extraImages.length > 0 || refs.length > 0) && (
         <section className="print-section mt-6">
-          <H>Reference images</H>
+          <H t={t}>Reference images</H>
           <div className="grid grid-cols-6 gap-2">
             {[...extraImages.map((m) => m.file), ...refs].map((f) => (
               // eslint-disable-next-line @next/next/no-img-element
@@ -390,11 +448,12 @@ export default function TechPackDocument({
       )}
 
       <div className="print-section mt-8 grid grid-cols-2 gap-8 border-t border-line pt-4 text-[10px] text-muted">
-        <div>Designer approval: ______________________ Date: ________</div>
-        <div>Factory approval: ______________________ Date: ________</div>
+        <div><Bi en="Designer approval" t={t} inline />: ______________________ <Bi en="Date" t={t} inline />: ________</div>
+        <div><Bi en="Factory approval" t={t} inline />: ______________________ <Bi en="Date" t={t} inline />: ________</div>
       </div>
       <div className="mt-3 text-[9px] uppercase tracking-wider text-muted">
-        {brandName || "Tech Pack Studio"} · Confidential · All measures in cm
+        {brandName || "Tech Pack Studio"} · <Bi en="Confidential" t={t} inline /> ·{" "}
+        <Bi en={units === "in" ? "All measures in inches." : "All measures in cm."} t={t} inline />
       </div>
     </div>
   );

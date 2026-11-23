@@ -2,7 +2,8 @@ import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { start } from "workflow/api";
 import { changeProduct, Ctx, errorResponse, UserError } from "@/lib/route";
-import { applyTechPack, getBrand } from "@/lib/store";
+import { applyTechPack } from "@/lib/store";
+import { aiContext } from "@/lib/collections";
 import { runTechPackTurn } from "@/lib/ai";
 import { createJob } from "@/lib/jobs";
 import { DecisionLogEntry, DecisionMode, diffTechPack, Job, productViews, TechPack } from "@/lib/schema";
@@ -56,7 +57,7 @@ export async function POST(req: Request, { params }: Ctx) {
 
       const turn = await runTechPackTurn({
         productId: id,
-        brand: product.useBrand === false ? null : await getBrand(),
+        ...(await aiContext(product)),
         history: product.messages,
         current: tp,
         productName: product.name,

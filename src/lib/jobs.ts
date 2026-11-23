@@ -25,6 +25,13 @@ const STEPS: Record<JobKind, { label: string; steps: { key: string; label: strin
       { key: "sideback", label: "Rendering side and back from the front" },
     ],
   },
+  translate: {
+    label: "Translation",
+    steps: [
+      { key: "translate", label: "Translating the tech pack" },
+      { key: "save", label: "Saving the translation" },
+    ],
+  },
   technical: {
     label: "Technical sketch",
     steps: [
@@ -43,13 +50,13 @@ async function write(job: Job) {
   await storage.write(key(job.productId, job.id), Buffer.from(JSON.stringify(job), "utf8"), "application/json");
 }
 
-export async function createJob(productId: string, kind: JobKind, only?: string[]): Promise<Job> {
+export async function createJob(productId: string, kind: JobKind, only?: string[], label?: string): Promise<Job> {
   const def = STEPS[kind];
   const job: Job = {
     id: randomUUID(),
     productId,
     kind,
-    label: def.label,
+    label: label ?? def.label,
     status: "running",
     steps: def.steps
       .filter((s) => !only || only.includes(s.key))

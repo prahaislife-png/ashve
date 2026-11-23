@@ -45,3 +45,23 @@ export async function productForToken(token: string): Promise<Product | null> {
   // Double check the product still points at this token.
   return product?.share?.token === token && product.techPack ? product : null;
 }
+
+/* ---------- collection links (one link for a whole drop) ---------- */
+
+export async function saveCollectionShare(token: string, collectionId: string) {
+  await storage.write(key(token), Buffer.from(JSON.stringify({ collectionId, createdAt: new Date().toISOString() })), "application/json");
+}
+
+/** The collection behind a vendor link, or null. */
+export async function collectionIdForToken(token: string): Promise<string | null> {
+  let k: string;
+  try {
+    k = key(token);
+  } catch {
+    return null;
+  }
+  const buf = await storage.read(k);
+  if (!buf) return null;
+  const { collectionId } = JSON.parse(buf.toString("utf8")) as { collectionId?: string };
+  return collectionId ?? null;
+}

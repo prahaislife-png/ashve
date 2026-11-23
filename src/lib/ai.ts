@@ -13,6 +13,7 @@ import {
   FlatFrontBack,
   FlatFrontBackSchema,
   MeasurementGuideSchema,
+  PlanSuggestSchema,
   RfqSchema,
   TechnicalSketch,
   TechnicalSketchSchema,
@@ -40,6 +41,16 @@ How to work:
 - The fabrics list is the bill of materials for fabrics; the trims list covers every other component (elastic, cords, thread, labels, hardware, interfacing).
 - Never invent supplier names, certifications or prices. If something is unknown, make a sensible default where it is low-risk and add a short item to \`openQuestions\` for anything she must decide.
 - \`reply\` is a short, warm message in plain English: say what you created or changed in 1–3 sentences, then ask at most 3 of the most important open questions. No markdown headings.`;
+
+export type Region = { currency: string; vendorCountry: string };
+
+function regionBlock(region: Region) {
+  return [
+    `REGION: the vendors who will make this are mostly in ${region.vendorCountry || "India"}. Use fabric, trim and finishing terms those factories know, and realistic quantities for small brands working with them.`,
+    `All prices in the tech pack (the targetFobUsd and targetRetailUsd fields, whatever their names say) are in ${region.currency || "INR"}.`,
+    "Measurements are always stored in centimetres; the app converts to inches when she wants.",
+  ].join("\n");
+}
 
 function brandBlock(brand: Brand | null) {
   if (!brand) return "BRAND DNA: switched off for this product. Design only from the designer's own words and photos.";
@@ -75,6 +86,9 @@ export async function runTechPackTurn(opts: {
   productName: string;
   message: string;
   images: string[];
+  region: Region;
+  /** Collection context (palette, fabrics, sibling pieces), when the product is in one. */
+  collection?: string | null;
 }): Promise<AssistantTurn> {
   const { productId, brand, history, current, productName, message, images } = opts;
 
@@ -109,7 +123,11 @@ export async function runTechPackTurn(opts: {
   const turn = await structuredCall(AssistantTurnWireSchema, {
     system: [
       { type: "text", text: INSTRUCTIONS },
-      { type: "text", text: brandBlock(brand), cache_control: { type: "ephemeral" } },
+      {
+        type: "text",
+        text: [brandBlock(brand), regionBlock(opts.region), opts.collection].filter(Boolean).join("\n\n"),
+        cache_control: { type: "ephemeral" },
+      },
     ],
     messages,
     what: "tech pack",
@@ -126,6 +144,9 @@ const KIND_LABEL: Record<string, string> = {
   "detail list": "Detail finder",
   email: "Factory email",
   "decision options": "Decision options",
+  translation: "Translation",
+  "sample revision": "Sample revision",
+  "collection plan": "Collection plan",
 };
 
 /** One streamed Claude call that must return JSON matching `schema`. */
@@ -368,7 +389,7 @@ export async function writeRfq(opts: { techPack: TechPack; brand: Brand }) {
     messages: [
       {
         role: "user",
-        content: `BRAND:\n${JSON.stringify({ name: opts.brand.name, targetFobUsd: opts.brand.targetFobUsd, moqPerColor: opts.brand.moqPerColor })}\n\nTECH PACK:\n${JSON.stringify(opts.techPack)}`,
+        content: `BRAND:\n${JSON.stringify({ name: opts.brand.name, targetFactoryCost: opts.brand.targetFobUsd, moqPerColor: opts.brand.moqPerColor, currency: opts.brand.currency, vendorCountry: opts.brand.vendorCountry })}\n(All prices, including the tech pack's costing fields, are in ${opts.brand.currency || "INR"}. Write prices with that currency.)\n\nTECH PACK:\n${JSON.stringify(opts.techPack)}`,
       },
     ],
     what: "email",
@@ -403,6 +424,65 @@ ${opts.questions.map((q, i) => `${i}. ${q}`).join("\n")}`,
       },
     ],
     what: "decision options",
+    effort: "low",
+  });
+}
+
+/* ---------- Factory-language translation ---------- */
+
+const TranslateSchema = z.object({
+  items: z.array(z.string()).describe("One translation per input line, in the same order"),
+});
+
+export async function translateStrings(opts: { strings: string[]; language: string; region: string }) {
+  const { strings, language, region } = opts;
+  const out = await structuredCall(TranslateSchema, {
+    system: [
+      {
+        type: "text",
+        text: `You translate garment tech packs from English into ${language} for the people who make the garment: pattern masters, tailors, line supervisors and merchandisers${region ? ` in ${region}` : ""}.
+
+Rules:
+- Use the words a garment factory actually uses. Where factories normally say the English term (overlock, flatlock, coverstitch, GSM, SPI, rib, piping, binding, bartack, placket, yoke, elastic), keep it in English or write it the way it is said locally, in the target script.
+- Never change numbers, measurements, units (cm, in, mm, GSM, SPI), ISO stitch numbers, point-of-measure codes, Pantone codes, hex colours, size names, style numbers, brand names or product names.
+- Keep it short and clear, like instructions on a factory floor. No explanations or notes.
+- Return exactly one translation for every input line, in the same order. If a line should not be translated, return it unchanged.`,
+        cache_control: { type: "ephemeral" },
+      },
+    ],
+    messages: [{ role: "user", content: JSON.stringify(strings) }],
+    what: "translation",
+    effort: "low",
+  });
+  if (out.items.length !== strings.length) {
+    throw new AiError("The translation came back incomplete. Please try again.");
+  }
+  return out.items;
+}
+
+/* ---------- Collection line plan ---------- */
+
+export async function suggestPieces(opts: {
+  collection: { name: string; season: string; story: string; palette: { name: string; hex: string }[]; fabrics: string[]; sizes: string; targetPieces: number | null };
+  existing: { name: string; category: string; notes: string }[];
+  brand: Brand;
+  count: number;
+}) {
+  const { collection, existing, brand, count } = opts;
+  return structuredCall(PlanSuggestSchema, {
+    system: [
+      {
+        type: "text",
+        text: `You are the head of product for a women's loungewear brand, planning a collection (a drop) with the founder. Suggest new pieces that round out the line: a balance of tops, bottoms, sets and layers; easy hero pieces plus a few that add newness; pieces that share fabrics and trims so minimums are easier to reach with vendors in ${brand.vendorCountry || "India"}. Every piece must fit the collection story and use the collection palette and fabric library. Don't repeat pieces already in the plan. Names are short and descriptive (no brand names).`,
+      },
+    ],
+    messages: [
+      {
+        role: "user",
+        content: `BRAND DNA:\n${JSON.stringify({ name: brand.name, aesthetic: brand.aesthetic, customer: brand.customer, fitNotes: brand.fitNotes })}\n\nCOLLECTION:\n${JSON.stringify(collection)}\n\nALREADY IN THE PLAN:\n${existing.length ? existing.map((e) => `- ${e.name} (${e.category})${e.notes ? `: ${e.notes}` : ""}`).join("\n") : "(nothing yet)"}\n\nSuggest ${count} new pieces.`,
+      },
+    ],
+    what: "collection plan",
     effort: "low",
   });
 }

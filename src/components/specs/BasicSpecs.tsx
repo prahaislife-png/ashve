@@ -6,6 +6,8 @@ import { useAction } from "@/lib/useAction";
 import ProductViews from "@/components/ProductViews";
 import { Field, Section, Status, Swatch, Tabs } from "./Section";
 import DecisionsPanel from "./DecisionsPanel";
+import { money } from "@/lib/locale";
+import { usePrefs } from "@/lib/prefs";
 
 type Tab = "info" | "colours" | "materials" | "construction";
 
@@ -14,6 +16,7 @@ export default function BasicSpecs({ product, onUpdate }: { product: Product; on
   const [tab, setTab] = useState<Tab>("info");
   const { run, busy, error, job } = useAction(onUpdate);
   const tabsRef = useRef<HTMLDivElement>(null);
+  const { currency } = usePrefs();
 
   /** Jump to a part of the tech pack that an answer changed. */
   function show(key: string) {
@@ -73,8 +76,8 @@ export default function BasicSpecs({ product, onUpdate }: { product: Product; on
             <Field
               label="Costing targets"
               value={[
-                tp.costing.targetFobUsd != null && `FOB $${tp.costing.targetFobUsd}`,
-                tp.costing.targetRetailUsd != null && `Retail $${tp.costing.targetRetailUsd}`,
+                tp.costing.targetFobUsd != null && `Factory cost ${money(tp.costing.targetFobUsd, currency)}`,
+                tp.costing.targetRetailUsd != null && `Retail ${money(tp.costing.targetRetailUsd, currency)}`,
                 tp.costing.moqPerColor != null && `MOQ ${tp.costing.moqPerColor}/colour`,
               ]
                 .filter(Boolean)

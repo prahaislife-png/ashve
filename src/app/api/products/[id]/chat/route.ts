@@ -1,5 +1,6 @@
 import { Ctx, mutateProduct, UserError } from "@/lib/route";
-import { applyTechPack, getBrand } from "@/lib/store";
+import { applyTechPack } from "@/lib/store";
+import { aiContext } from "@/lib/collections";
 import { runTechPackTurn } from "@/lib/ai";
 import { deleteImage, parseDataUrl, saveImage } from "@/lib/files";
 
@@ -31,7 +32,7 @@ export async function POST(req: Request, { params }: Ctx) {
     try {
       const turn = await runTechPackTurn({
         productId: id,
-        brand: product.useBrand === false ? null : await getBrand(),
+        ...(await aiContext(product)),
         history: product.messages,
         current: product.techPack,
         productName: product.name,

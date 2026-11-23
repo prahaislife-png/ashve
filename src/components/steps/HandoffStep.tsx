@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Bookmark,
@@ -11,6 +11,7 @@ import {
   FileArchive,
   FileSpreadsheet,
   FileText,
+  Languages,
   Link2,
   Mail,
   RotateCcw,
@@ -21,6 +22,9 @@ import { metaFor, OUTPUTS, OutputKey, Product, ProductStatus, outputStatus } fro
 import { useAction } from "@/lib/useAction";
 import { COST, Cost, Status } from "@/components/specs/Section";
 import TitleBlock from "@/components/TitleBlock";
+import { LANGUAGES, languageOf } from "@/lib/locale";
+import { usePrefs } from "@/lib/prefs";
+import { fingerprint } from "@/lib/translate";
 
 export default function HandoffStep({
   product,
@@ -35,6 +39,12 @@ export default function HandoffStep({
   const [copied, setCopied] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [versionName, setVersionName] = useState("");
+  const tr = useAction(onUpdate);
+  const prefs = usePrefs();
+  const [lang, setLang] = useState<string | null>(null);
+  useEffect(() => {
+    if (lang === null && prefs.factoryLanguage) setLang(prefs.factoryLanguage);
+  }, [prefs.factoryLanguage, lang]);
   const tp = product.techPack;
   const status = outputStatus(product);
 
@@ -83,6 +93,11 @@ export default function HandoffStep({
       hint: tp.styleNumber && tp.styleNumber !== "TBC" ? tp.styleNumber : "Ask the assistant to assign one",
     },
   ];
+  const chosen = lang ?? "en";
+  const translation = chosen === "en" ? null : product.translations?.[chosen];
+  const stale = !!translation && translation.source !== fingerprint(tp);
+  const docLang = translation ? chosen : "en";
+  const q = `units=${prefs.units}&lang=${docLang}`;
   const done = checks.filter((c) => c.ok).length;
   const ready = done === checks.length;
 
@@ -146,22 +161,93 @@ export default function HandoffStep({
           <h2 id="files-title" className="h-title text-[22px]">
             Files for the factory
           </h2>
+          {/* Vendor document options */}
+          <div className="mt-4 rounded-xl bg-panel p-4">
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+              <div className="flex items-center gap-2 text-[13.5px] text-ink-2">
+                Measurements
+                <div className="flex rounded-md bg-card p-0.5 shadow-elev-sm" role="radiogroup" aria-label="Measurements">
+                  {(["cm", "in"] as const).map((u) => (
+                    <button
+                      key={u}
+                      type="button"
+                      role="radio"
+                      aria-checked={prefs.units === u}
+                      onClick={() => prefs.setUnits(u)}
+                      className={`rounded px-2.5 py-1 text-[12.5px] ${prefs.units === u ? "bg-accent text-accent-ink" : "text-ink-2 hover:text-ink"}`}
+                    >
+                      {u === "cm" ? "cm" : "inches"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <label className="flex items-center gap-2 text-[13.5px] text-ink-2">
+                <Languages size={15} className="text-accent" /> Language
+                <select className="input w-auto py-1" value={chosen} onChange={(e) => setLang(e.target.value)}>
+                  {LANGUAGES.map((l) => (
+                    <option key={l.code} value={l.code}>
+                      {l.code === "en" ? "English" : `${l.name} · ${l.native}`}
+                      {product.translations?.[l.code] ? " ✓" : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            {chosen !== "en" && (
+              <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-line pt-3 text-[13px]">
+                <span className="min-w-0 flex-1 text-ink-2">
+                  {!translation
+                    ? `The PDF and factory link can show every line in ${languageOf(chosen).name} with the English underneath, so the sampling floor and your merchandiser read the same page.`
+                    : stale
+                      ? `The tech pack changed since the ${languageOf(chosen).name} translation was made.`
+                      : `${languageOf(chosen).name} is ready, made ${new Date(translation.at).toLocaleDateString("en-GB")}. Vendors can switch language on the factory link.`}
+                </span>
+                {(!translation || stale) && (
+                  <button
+                    className="btn btn-primary"
+                    disabled={!!tr.busy}
+                    onClick={() => tr.run(`/api/products/${product.id}/translate`, "POST", { lang: chosen }, "Translating")}
+                  >
+                    <Languages size={14} /> {translation ? "Update translation" : `Translate into ${languageOf(chosen).name}`}{" "}
+                    <Cost usd={COST.translate} />
+                  </button>
+                )}
+                {translation && (
+                  <button
+                    className="btn btn-ghost h-8 text-[12.5px] text-danger"
+                    disabled={!!tr.busy}
+                    onClick={() =>
+                      confirm(`Remove the ${languageOf(chosen).name} translation?`) &&
+                      tr.run(`/api/products/${product.id}/translate?lang=${chosen}`, "DELETE", undefined, "Removing")
+                    }
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            )}
+            <Status busy={tr.busy} error={tr.error} job={tr.job} />
+          </div>
+
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <Link
-              href={`/products/${product.id}/print`}
+              href={`/products/${product.id}/print?${q}`}
               target="_blank"
               className="card flex items-start gap-3 p-4 transition-shadow hover:shadow-elev-lg"
             >
               <FileText size={20} className="mt-0.5 text-accent" />
               <span>
-                <span className="block font-medium text-ink">Tech pack PDF</span>
+                <span className="block font-medium text-ink">
+                  Tech pack PDF
+                  {docLang !== "en" && <span className="ml-1.5 text-[12.5px] font-normal text-accent">{languageOf(docLang).native} + English</span>}
+                </span>
                 <span className="mt-0.5 block text-[13px] text-ink-2">
                   Every section in one document. Print it or save as PDF.
                 </span>
               </span>
             </Link>
             <a
-              href={`/api/products/${product.id}/excel`}
+              href={`/api/products/${product.id}/excel?units=${prefs.units}`}
               className="card flex items-start gap-3 p-4 transition-shadow hover:shadow-elev-lg"
             >
               <FileSpreadsheet size={20} className="mt-0.5 text-accent" />
@@ -173,7 +259,7 @@ export default function HandoffStep({
               </span>
             </a>
             <a
-              href={`/api/products/${product.id}/export`}
+              href={`/api/products/${product.id}/export?units=${prefs.units}`}
               className="card flex items-start gap-3 p-4 transition-shadow hover:shadow-elev-lg sm:col-span-2"
             >
               <FileArchive size={20} className="mt-0.5 text-accent" />
@@ -195,7 +281,8 @@ export default function HandoffStep({
                   <div className="font-medium text-ink">Factory link</div>
                   <p className="mt-0.5 max-w-md text-[13px] text-ink-2">
                     A private read-only page with the full tech pack, Excel and ZIP. The factory needs no login.
-                    It always shows the latest version. Turn it off any time.
+                    It always shows the latest version, in cm or inches and in any language you have translated. Turn
+                    it off any time.
                   </p>
                 </div>
               </div>
@@ -233,7 +320,7 @@ export default function HandoffStep({
                 >
                   <Copy size={14} /> {linkCopied ? "Copied" : "Copy"}
                 </button>
-                <a className="btn" href={shareUrl} target="_blank" rel="noreferrer">
+                <a className="btn" href={`${shareUrl}?${q}`} target="_blank" rel="noreferrer">
                   <ExternalLink size={14} /> Open
                 </a>
               </div>

@@ -16,6 +16,7 @@ export async function GET(_req: Request, { params }: Ctx) {
     product.labels?.product.file ?? "",
     product.labels?.hangTag.file ?? "",
     ...product.messages.flatMap((m) => m.images ?? []),
+    ...(product.samples ?? []).flatMap((r) => r.photos.map((ph) => ph.file)),
   ]);
   if (!used.has(name)) return new Response("Not found", { status: 404 });
   return serveFile(product.id, name);
